@@ -1,0 +1,6 @@
+[workspace]
+
+members = [
+    "hack-hdsim-lib",
+    "hack-hdsim-cli",
+]
