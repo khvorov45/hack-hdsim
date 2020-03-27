@@ -6,3 +6,4 @@ edition = "2018"
 
 [dependencies]
 hack-hdsim-lib = { path = "../hack-hdsim-lib" }
+structopt = "0.3.12"
