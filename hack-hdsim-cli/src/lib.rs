@@ -3,7 +3,7 @@ extern crate hack_hdsim_lib;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
-/// Rust version of Nano2Tetris's hardware simulator
+/// Rust version of Nand2Tetris's hardware simulator
 #[derive(StructOpt, Debug)]
 pub struct Opt {
     /// .hdl file to read
