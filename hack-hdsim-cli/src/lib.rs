@@ -8,7 +8,7 @@ use structopt::StructOpt;
 pub struct Opt {
     /// .hdl file to read
     #[structopt(name = "HDLFILE", parse(from_os_str))]
-    file: PathBuf,
+    pub file: PathBuf,
 }
 
 pub fn run(opt: Opt) {
