@@ -13,5 +13,8 @@ pub struct Opt {
 
 pub fn run(opt: Opt) {
     println!("Called with args\n{:#?}", opt);
-    hack_hdsim_lib::readhdl(opt.file)
+    match hack_hdsim_lib::readhdl(opt.file) {
+        Ok(()) => println!("Read successfully"),
+        Err(e) => eprintln!("Failed to read: {}", e),
+    };
 }
