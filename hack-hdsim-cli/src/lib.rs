@@ -1,5 +1,6 @@
 extern crate hack_hdsim_lib;
 
+use std::error::Error;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
@@ -11,11 +12,8 @@ pub struct Opt {
     pub file: PathBuf,
 }
 
-pub fn run(opt: Opt) {
+pub fn run(opt: Opt) -> Result<(), Box<dyn Error>> {
     println!("Called with args\n{:#?}", opt);
     let filepath = opt.file.as_path();
-    match hack_hdsim_lib::readhdl(filepath) {
-        Ok(()) => println!("Read successfully"),
-        Err(e) => eprintln!("Failed to read {}: {}", filepath.display(), e),
-    };
+    hack_hdsim_lib::readhdl(filepath)
 }
