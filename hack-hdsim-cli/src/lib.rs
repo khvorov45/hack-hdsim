@@ -10,10 +10,11 @@ mod errors {
         types {
             Error, ErrorKind, ResultExt, Result;
         }
+        errors { FileReadError(filepath: std::path::PathBuf) }
     }
 }
 
-use errors::{Result, ResultExt};
+pub use errors::{ErrorKind, Result, ResultExt};
 
 /// Rust version of Nand2Tetris's hardware simulator
 #[derive(StructOpt, Debug)]
@@ -26,9 +27,8 @@ pub struct Opt {
 pub fn run(opt: Opt) -> Result<()> {
     println!("Called with args\n{:#?}", opt);
     let filepath = opt.file.as_path();
-    let contents = ::std::fs::read_to_string(filepath).chain_err(|| {
-        format!("unable to read from '{}'", filepath.display())
-    })?;
+    let contents = std::fs::read_to_string(filepath)
+        .chain_err(|| ErrorKind::FileReadError(opt.file))?;
     hack_hdsim_lib::tokenise_hdl(contents);
     Ok(())
 }
