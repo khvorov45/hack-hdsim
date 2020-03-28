@@ -1,2 +1,2 @@
-mod readhdl;
-pub use readhdl::readhdl;
+mod tokeniser;
+pub use tokeniser::tokenise_hdl;
