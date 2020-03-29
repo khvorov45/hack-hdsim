@@ -14,7 +14,7 @@ mod errors {
     }
 }
 
-pub use errors::{ErrorKind, Result, ResultExt};
+pub use errors::{Error, ErrorKind, Result, ResultExt};
 
 /// Rust version of Nand2Tetris's hardware simulator
 #[derive(StructOpt, Debug)]
@@ -31,4 +31,25 @@ pub fn run(opt: Opt) -> Result<()> {
         .chain_err(|| ErrorKind::FileReadError(opt.file))?;
     hack_hdsim_lib::tokenise_hdl(contents);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn run_fails_no_file() {
+        let opt_no_file = Opt {
+            file: std::path::PathBuf::from(r"./no_such_file"),
+        };
+        let run_no_file = run(opt_no_file);
+        matches!(run_no_file, Err(_));
+        let err_no_file = run_no_file.unwrap_err();
+        matches!(err_no_file, Error(ErrorKind::FileReadError(_), _));
+        if let ErrorKind::FileReadError(file) = err_no_file.kind() {
+            assert_eq!(
+                file.as_path(),
+                std::path::PathBuf::from(r"./no_such_file").as_path()
+            );
+        }
+    }
 }
