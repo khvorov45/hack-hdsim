@@ -1,7 +1,7 @@
 const _KEYWORDS: &[&str] = &["CHIP", "IN", "OUT", "PARTS"];
 
 #[derive(Debug)]
-struct Token {
+pub struct Token {
     literal: String,
     token_type: TokenType,
 }
@@ -13,6 +13,18 @@ enum TokenType {
     _Identifier,
 }
 
-struct _Tokens {
+#[derive(Debug)]
+pub struct TokenStream {
     tokens: Vec<Token>,
+}
+
+impl TokenStream {
+    pub fn new(contents: &str) -> Self {
+        println!("Contents:\n{}", contents);
+        let tokens = Vec::new();
+        Self { tokens }
+    }
+    pub fn tokens(&self) -> &Vec<Token> {
+        &self.tokens
+    }
 }

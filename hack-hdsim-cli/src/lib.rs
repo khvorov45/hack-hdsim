@@ -25,10 +25,10 @@ pub struct Opt {
 }
 
 pub fn run(opt: Opt) -> Result<()> {
-    println!("Called with args\n{:#?}", opt);
     let filepath = opt.file.as_path();
-    let _contents = std::fs::read_to_string(filepath)
+    let contents = std::fs::read_to_string(filepath)
         .chain_err(|| ErrorKind::FileReadError(opt.file))?;
+    let _tokens = hack_hdsim_lib::TokenStream::new(&contents[..]);
     Ok(())
 }
 
