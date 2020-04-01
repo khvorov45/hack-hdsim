@@ -41,14 +41,18 @@ impl<'a> Tokeniser<'a> {
     }
     fn tokenise_chip(&mut self) -> Vec<Token> {
         let tokens = Vec::new();
-        while let Some(ch) = self.itr.next() {
+        loop {
             self.skip_nontokens();
-            print!("{:?} ", ch);
+            match self.itr.next() {
+                Some(ch) => print!("{:?}", ch),
+                None => break,
+            }
         }
         tokens
     }
     fn skip_nontokens(&mut self) {
         self.skip_whitespace();
+        // Add comment skipping
     }
     fn skip_whitespace(&mut self) {
         while let Some(ch) = self.itr.peek() {
