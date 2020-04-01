@@ -60,3 +60,24 @@ impl<'a> Tokeniser<'a> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn whitespace_skips() {
+        let contents = "  This is \t a string\nwith whitespaces  ";
+        let contents_nws = "Thisisastringwithwhitespaces";
+        let mut tokeniser = Tokeniser::new(contents);
+        let mut no_whitespace = Vec::new();
+        loop {
+            tokeniser.skip_whitespace();
+            match tokeniser.itr.next() {
+                Some(ch) => no_whitespace.push(ch),
+                None => break,
+            }
+        }
+        let contents_nws_vec: Vec<char> = contents_nws.chars().collect();
+        assert_eq!(no_whitespace, contents_nws_vec);
+    }
+}
