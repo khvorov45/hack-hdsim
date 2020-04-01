@@ -1,0 +1,14 @@
+CHIP Identifier {
+    IN IdentifierList;
+    OUT IdentifierList;
+
+    PARTS:
+
+    Identifier(AssignmentList),
+    Identifier(AssignmentList),
+    ...
+}
+
+IdentifierList: Identifier, Identifier, ...
+
+AssignmentList: Identifier=Identifier, Identifier=Identifier, ...
