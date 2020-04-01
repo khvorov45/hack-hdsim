@@ -48,6 +48,9 @@ impl<'a> Tokeniser<'a> {
         tokens
     }
     fn skip_nontokens(&mut self) {
+        self.skip_whitespace();
+    }
+    fn skip_whitespace(&mut self) {
         while let Some(ch) = self.itr.peek() {
             if ch.is_whitespace() {
                 self.itr.next();
