@@ -54,6 +54,8 @@ impl<'a> Tokeniser<'a> {
         self.skip_whitespace();
         // Add comment skipping
     }
+    /// If the current character is a whitespace, moves the iterator to the next
+    /// non-whitespace character.
     fn skip_whitespace(&mut self) {
         while let Some(ch) = self.itr.peek() {
             if ch.is_whitespace() {
