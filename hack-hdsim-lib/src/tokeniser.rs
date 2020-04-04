@@ -57,6 +57,7 @@ impl<'a> Tokeniser<'a> {
     }
     /// If the current character is a whitespace, moves the iterator to the next
     /// non-whitespace character.
+    /// Returns `true` if moved the iterator, `false` otherwise.
     fn skip_whitespace(&mut self) -> bool {
         let mut itr = self.itr.clone();
         let mut moved = false;
