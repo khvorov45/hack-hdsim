@@ -50,10 +50,13 @@ impl<'a> Tokeniser<'a> {
         }
         tokens
     }
+    /// If the current character is a whitespace or starts a comment,
+    /// moves the iterator to the character that starts a token.
     fn skip_nontokens(&mut self) {
-        self.skip_whitespace();
-        self.skip_comment("/*", "*/");
-        self.skip_comment("//", "\n");
+        while self.skip_whitespace()
+            || self.skip_comment("/*", "*/")
+            || self.skip_comment("//", "\n")
+        {}
     }
     /// If the current character is a whitespace, moves the iterator to the next
     /// non-whitespace character.
@@ -146,5 +149,24 @@ extra";
         let contents = "a/**/";
         let mut tokeniser = Tokeniser::new(contents);
         assert_eq!(false, tokeniser.skip_comment("/*", "*/"));
+    }
+    #[test]
+    fn skip_nontokens() {
+        let contents = "  /* comment */  a /* comment */ = b  // comment
+// comment
+c=d
+";
+        let contents_tok_only = "a=bc=d";
+        let mut tokeniser = Tokeniser::new(contents);
+        let mut tok_only = Vec::new();
+        loop {
+            tokeniser.skip_nontokens();
+            match tokeniser.itr.next() {
+                Some(ch) => tok_only.push(ch),
+                None => break,
+            }
+        }
+        let contents_to_vec: Vec<char> = contents_tok_only.chars().collect();
+        assert_eq!(tok_only, contents_to_vec);
     }
 }
