@@ -72,9 +72,12 @@ impl<'a> Tokeniser<'a> {
         moved
     }
     /// If the current character starts a comment, advances the iterator to
-    /// the next non-comment character (handles back-to-back comments as well)
-    fn skip_comment(&mut self, start: &str, end: &str) {
+    /// the next non-comment character (handles back-to-back comments as well).
+    /// Returns `true` if moved the iterator, `false` otherwise.
+    fn skip_comment(&mut self, start: &str, end: &str) -> bool {
+        let mut moved = false;
         while self.itr.as_str().starts_with(start) {
+            moved = true;
             for _ in start.chars() {
                 self.itr.next();
             }
@@ -88,6 +91,7 @@ impl<'a> Tokeniser<'a> {
                 self.itr.next();
             }
         }
+        moved
     }
 }
 
@@ -117,7 +121,7 @@ mod tests {
         assert_eq!(false, tokeniser.skip_whitespace());
     }
     #[test]
-    fn comment_skips() {
+    fn skip_comment() {
         let contents = "/*com*/Thisis/* comment */astring/* comment 2*//**/
 // this is a line comment here
 // another line comment
@@ -136,5 +140,11 @@ extra";
         }
         let contents_nc_vec: Vec<char> = contents_nc.chars().collect();
         assert_eq!(no_com, contents_nc_vec);
+        let contents = "/**/a";
+        let mut tokeniser = Tokeniser::new(contents);
+        assert_eq!(true, tokeniser.skip_comment("/*", "*/"));
+        let contents = "a/**/";
+        let mut tokeniser = Tokeniser::new(contents);
+        assert_eq!(false, tokeniser.skip_comment("/*", "*/"));
     }
 }
