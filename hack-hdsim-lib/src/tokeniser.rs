@@ -57,15 +57,18 @@ impl<'a> Tokeniser<'a> {
     }
     /// If the current character is a whitespace, moves the iterator to the next
     /// non-whitespace character.
-    fn skip_whitespace(&mut self) {
+    fn skip_whitespace(&mut self) -> bool {
         let mut itr = self.itr.clone();
+        let mut moved = false;
         while let Some(ch) = itr.next() {
             if ch.is_whitespace() {
                 self.itr.next();
+                moved = true;
                 continue;
             }
             break;
         }
+        moved
     }
     /// If the current character starts a comment, advances the iterator to
     /// the next non-comment character (handles back-to-back comments as well)
@@ -91,7 +94,7 @@ impl<'a> Tokeniser<'a> {
 mod tests {
     use super::*;
     #[test]
-    fn whitespace_skips() {
+    fn skip_whitespace() {
         let contents = "  This is \t a string\nwith whitespaces  ";
         let contents_nws = "Thisisastringwithwhitespaces";
         let mut tokeniser = Tokeniser::new(contents);
@@ -105,6 +108,12 @@ mod tests {
         }
         let contents_nws_vec: Vec<char> = contents_nws.chars().collect();
         assert_eq!(no_whitespace, contents_nws_vec);
+        let contents = "   a";
+        let mut tokeniser = Tokeniser::new(contents);
+        assert_eq!(true, tokeniser.skip_whitespace());
+        let contents = "a    ";
+        let mut tokeniser = Tokeniser::new(contents);
+        assert_eq!(false, tokeniser.skip_whitespace());
     }
     #[test]
     fn comment_skips() {
