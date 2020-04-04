@@ -111,6 +111,8 @@ mod tests {
     fn comment_skips() {
         let contents = "/*com*/Thisis/* comment */astring/* comment 2*//**/
 // this is a line comment here
+// another line comment
+//
 extra";
         let contents_nc = "Thisisastring\nextra";
         let mut tokeniser = Tokeniser::new(contents);
