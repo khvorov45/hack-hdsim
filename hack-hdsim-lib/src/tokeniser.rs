@@ -32,16 +32,32 @@ impl TokenStream {
 #[derive(Debug, PartialEq)]
 struct UnexpectedToken {
     expected: Token,
+    nline: i32,
+    nchar: i32,
 }
 
 struct Tokeniser<'a> {
     itr: std::str::Chars<'a>,
+    nline: i32,
+    nchar: i32,
 }
 
 impl<'a> Tokeniser<'a> {
     fn new(contents: &'a str) -> Self {
         Self {
             itr: contents.chars(),
+            nline: 1,
+            nchar: 1,
+        }
+    }
+    /// Takes a character that was just consumed. If newline, increments line
+    /// count and resets char count. Increments char count otherwise.
+    fn advance_counters(&mut self, ch: char) {
+        if ch == '\n' {
+            self.nline += 1;
+            self.nchar = 1;
+        } else {
+            self.nchar += 1;
         }
     }
     fn tokenise_chip(&mut self) -> Vec<Token> {
@@ -70,11 +86,14 @@ impl<'a> Tokeniser<'a> {
         if self.itr.as_str().starts_with(expct) {
             for _ in expct.chars() {
                 self.itr.next();
+                self.nchar += 1;
             }
             return Ok(expected_token);
         }
         Err(UnexpectedToken {
             expected: expected_token,
+            nline: self.nline,
+            nchar: self.nchar,
         })
     }
     /// If the current character is a whitespace or starts a comment,
@@ -94,6 +113,7 @@ impl<'a> Tokeniser<'a> {
         while let Some(ch) = itr.next() {
             if ch.is_whitespace() {
                 self.itr.next();
+                self.advance_counters(ch);
                 moved = true;
                 continue;
             }
@@ -110,15 +130,20 @@ impl<'a> Tokeniser<'a> {
             moved = true;
             for _ in start.chars() {
                 self.itr.next();
+                self.nchar += 1;
             }
             loop {
                 if self.itr.as_str().starts_with(end) {
-                    for _ in end.chars() {
+                    for ch in end.chars() {
                         self.itr.next();
+                        self.advance_counters(ch);
                     }
                     break;
                 }
-                self.itr.next();
+                match self.itr.next() {
+                    Some(ch) => self.advance_counters(ch),
+                    None => break,
+                }
             }
         }
         moved
@@ -217,7 +242,25 @@ c=d
             .unwrap_err();
         let chip_err_exp = UnexpectedToken {
             expected: chip_expct_exp,
+            nline: 1,
+            nchar: 1,
         };
         assert_eq!(chip_err, chip_err_exp);
+    }
+    #[test]
+    fn nline_nchar() {
+        let contents = "\t\t  CHIP
+// comment
+/*comment*/a=b";
+        let mut tokeniser = Tokeniser::new(contents);
+        assert_eq!((1, 1), (tokeniser.nline, tokeniser.nchar));
+        tokeniser.skip_nontokens();
+        assert_eq!((1, 5), (tokeniser.nline, tokeniser.nchar));
+        tokeniser
+            .tokenise_expected("CHIP", TokenType::Keyword)
+            .unwrap();
+        assert_eq!((1, 9), (tokeniser.nline, tokeniser.nchar));
+        tokeniser.skip_nontokens();
+        assert_eq!((3, 12), (tokeniser.nline, tokeniser.nchar));
     }
 }
