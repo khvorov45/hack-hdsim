@@ -3,7 +3,7 @@ const _KEYWORDS: &[&str] = &["CHIP", "IN", "OUT", "PARTS"];
 #[derive(Debug, PartialEq)]
 enum TokenType {
     Keyword,
-    _Symbol,
+    Symbol,
     _Identifier,
 }
 
@@ -31,7 +31,7 @@ impl TokenStream {
 
 #[derive(Debug, PartialEq)]
 struct UnexpectedToken {
-    expected: String,
+    expected: Token,
 }
 
 struct Tokeniser<'a> {
@@ -48,29 +48,33 @@ impl<'a> Tokeniser<'a> {
         let tokens = Vec::new();
 
         self.skip_nontokens();
-        println!("{:?}", self.tokenise_keyword("CHIP"));
+        println!("{:?}", self.tokenise_expected("CHIP", TokenType::Keyword));
+        self.skip_nontokens();
+        println!("{:?}", self.tokenise_expected("{", TokenType::Symbol));
 
         tokens
     }
-    /// If the current character starts `kwd`,
-    /// returns Token that represents the `kwd` keyword
-    /// and advances the iterator just past `kwd`
-    /// Error if the current character does not start `kwd`
-    fn tokenise_keyword(
+    /// If the current character starts `expct`,
+    /// returns Token with literal `expct` and type `tpe`,
+    /// and advances the iterator just past `expct`
+    /// Error if the current character does not start `expct`
+    fn tokenise_expected(
         &mut self,
-        kwd: &str,
+        expct: &str,
+        tpe: TokenType,
     ) -> Result<Token, UnexpectedToken> {
-        if self.itr.as_str().starts_with(kwd) {
-            for _ in kwd.chars() {
+        let expected_token = Token {
+            literal: String::from(expct),
+            token_type: tpe,
+        };
+        if self.itr.as_str().starts_with(expct) {
+            for _ in expct.chars() {
                 self.itr.next();
             }
-            return Ok(Token {
-                literal: String::from(kwd),
-                token_type: TokenType::Keyword,
-            });
+            return Ok(expected_token);
         }
         Err(UnexpectedToken {
-            expected: String::from(kwd),
+            expected: expected_token,
         })
     }
     /// If the current character is a whitespace or starts a comment,
@@ -193,22 +197,26 @@ c=d
         assert_eq!(tok_only, contents_to_vec);
     }
     #[test]
-    fn tokenise_keyword() {
+    fn tokenise_expected() {
         let contents = "CHIP {";
         let mut tokeniser = Tokeniser::new(contents);
-        let chip_kwd = tokeniser.tokenise_keyword("CHIP").unwrap();
-        let chip_kwd_exp = Token {
+        let chip_expct = tokeniser
+            .tokenise_expected("CHIP", TokenType::Keyword)
+            .unwrap();
+        let chip_expct_exp = Token {
             literal: String::from("CHIP"),
             token_type: TokenType::Keyword,
         };
-        assert_eq!(chip_kwd, chip_kwd_exp);
+        assert_eq!(chip_expct, chip_expct_exp);
         assert_eq!(Some(' '), tokeniser.itr.next());
         assert_eq!(Some('{'), tokeniser.itr.next());
         let contents = "NOTCHIP {";
         let mut tokeniser = Tokeniser::new(contents);
-        let chip_err = tokeniser.tokenise_keyword("CHIP").unwrap_err();
+        let chip_err = tokeniser
+            .tokenise_expected("CHIP", TokenType::Keyword)
+            .unwrap_err();
         let chip_err_exp = UnexpectedToken {
-            expected: String::from("CHIP"),
+            expected: chip_expct_exp,
         };
         assert_eq!(chip_err, chip_err_exp);
     }
