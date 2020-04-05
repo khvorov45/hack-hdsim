@@ -30,7 +30,7 @@ impl TokenStream {
 }
 
 #[derive(Debug, PartialEq)]
-struct WrongKeyword {
+struct UnexpectedToken {
     expected: String,
 }
 
@@ -56,7 +56,10 @@ impl<'a> Tokeniser<'a> {
     /// returns Token that represents the `kwd` keyword
     /// and advances the iterator just past `kwd`
     /// Error if the current character does not start `kwd`
-    fn tokenise_keyword(&mut self, kwd: &str) -> Result<Token, WrongKeyword> {
+    fn tokenise_keyword(
+        &mut self,
+        kwd: &str,
+    ) -> Result<Token, UnexpectedToken> {
         if self.itr.as_str().starts_with(kwd) {
             for _ in kwd.chars() {
                 self.itr.next();
@@ -66,7 +69,7 @@ impl<'a> Tokeniser<'a> {
                 token_type: TokenType::Keyword,
             });
         }
-        Err(WrongKeyword {
+        Err(UnexpectedToken {
             expected: String::from(kwd),
         })
     }
@@ -204,7 +207,7 @@ c=d
         let contents = "NOTCHIP {";
         let mut tokeniser = Tokeniser::new(contents);
         let chip_err = tokeniser.tokenise_keyword("CHIP").unwrap_err();
-        let chip_err_exp = WrongKeyword {
+        let chip_err_exp = UnexpectedToken {
             expected: String::from("CHIP"),
         };
         assert_eq!(chip_err, chip_err_exp);
