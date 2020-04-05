@@ -50,6 +50,16 @@ impl<'a> Tokeniser<'a> {
             nchar: 1,
         }
     }
+    /// Reads the next character and increments counters.
+    /// Returns Some(ch) when there is a character to read. None otherwise.
+    fn next_char(&mut self) -> Option<char> {
+        if let Some(ch) = self.itr.next() {
+            self.advance_counters(ch);
+            Some(ch)
+        } else {
+            None
+        }
+    }
     /// Takes a character that was just consumed. If newline, increments line
     /// count and resets char count. Increments char count otherwise.
     fn advance_counters(&mut self, ch: char) {
@@ -85,8 +95,7 @@ impl<'a> Tokeniser<'a> {
         };
         if self.itr.as_str().starts_with(expct) {
             for _ in expct.chars() {
-                self.itr.next();
-                self.nchar += 1;
+                self.next_char();
             }
             return Ok(expected_token);
         }
@@ -112,8 +121,7 @@ impl<'a> Tokeniser<'a> {
         let mut moved = false;
         while let Some(ch) = itr.next() {
             if ch.is_whitespace() {
-                self.itr.next();
-                self.advance_counters(ch);
+                self.next_char();
                 moved = true;
                 continue;
             }
@@ -129,21 +137,16 @@ impl<'a> Tokeniser<'a> {
         while self.itr.as_str().starts_with(start) {
             moved = true;
             for _ in start.chars() {
-                self.itr.next();
-                self.nchar += 1;
+                self.next_char();
             }
             loop {
                 if self.itr.as_str().starts_with(end) {
-                    for ch in end.chars() {
-                        self.itr.next();
-                        self.advance_counters(ch);
+                    for _ in end.chars() {
+                        self.next_char();
                     }
                     break;
                 }
-                match self.itr.next() {
-                    Some(ch) => self.advance_counters(ch),
-                    None => break,
-                }
+                self.next_char();
             }
         }
         moved
