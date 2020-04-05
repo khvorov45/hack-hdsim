@@ -1,16 +1,16 @@
 const _KEYWORDS: &[&str] = &["CHIP", "IN", "OUT", "PARTS"];
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
+enum TokenType {
+    Keyword,
+    _Symbol,
+    _Identifier,
+}
+
+#[derive(Debug, PartialEq)]
 pub struct Token {
     literal: String,
     token_type: TokenType,
-}
-
-#[derive(Debug)]
-enum TokenType {
-    _Keyword,
-    _Symbol,
-    _Identifier,
 }
 
 #[derive(Debug)]
@@ -29,6 +29,11 @@ impl TokenStream {
     }
 }
 
+#[derive(Debug, PartialEq)]
+struct WrongKeyword {
+    expected: String,
+}
+
 struct Tokeniser<'a> {
     itr: std::str::Chars<'a>,
 }
@@ -41,14 +46,29 @@ impl<'a> Tokeniser<'a> {
     }
     fn tokenise_chip(&mut self) -> Vec<Token> {
         let tokens = Vec::new();
-        loop {
-            self.skip_nontokens();
-            match self.itr.next() {
-                Some(ch) => print!("{:?}", ch),
-                None => break,
-            }
-        }
+
+        self.skip_nontokens();
+        println!("{:?}", self.tokenise_keyword("CHIP"));
+
         tokens
+    }
+    /// If the current character starts `kwd`,
+    /// returns Token that represents the `kwd` keyword
+    /// and advances the iterator just past `kwd`
+    /// Error if the current character does not start `kwd`
+    fn tokenise_keyword(&mut self, kwd: &str) -> Result<Token, WrongKeyword> {
+        if self.itr.as_str().starts_with(kwd) {
+            for _ in kwd.chars() {
+                self.itr.next();
+            }
+            return Ok(Token {
+                literal: String::from(kwd),
+                token_type: TokenType::Keyword,
+            });
+        }
+        Err(WrongKeyword {
+            expected: String::from(kwd),
+        })
     }
     /// If the current character is a whitespace or starts a comment,
     /// moves the iterator to the character that starts a token.
@@ -168,5 +188,25 @@ c=d
         }
         let contents_to_vec: Vec<char> = contents_tok_only.chars().collect();
         assert_eq!(tok_only, contents_to_vec);
+    }
+    #[test]
+    fn tokenise_keyword() {
+        let contents = "CHIP {";
+        let mut tokeniser = Tokeniser::new(contents);
+        let chip_kwd = tokeniser.tokenise_keyword("CHIP").unwrap();
+        let chip_kwd_exp = Token {
+            literal: String::from("CHIP"),
+            token_type: TokenType::Keyword,
+        };
+        assert_eq!(chip_kwd, chip_kwd_exp);
+        assert_eq!(Some(' '), tokeniser.itr.next());
+        assert_eq!(Some('{'), tokeniser.itr.next());
+        let contents = "NOTCHIP {";
+        let mut tokeniser = Tokeniser::new(contents);
+        let chip_err = tokeniser.tokenise_keyword("CHIP").unwrap_err();
+        let chip_err_exp = WrongKeyword {
+            expected: String::from("CHIP"),
+        };
+        assert_eq!(chip_err, chip_err_exp);
     }
 }
