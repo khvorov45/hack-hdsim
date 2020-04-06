@@ -4,7 +4,7 @@ const _KEYWORDS: &[&str] = &["CHIP", "IN", "OUT", "PARTS"];
 enum TokenType {
     Keyword,
     Symbol,
-    _Identifier,
+    Identifier,
 }
 
 #[derive(Debug, PartialEq)]
@@ -76,9 +76,44 @@ impl<'a> Tokeniser<'a> {
         self.skip_nontokens();
         println!("{:?}", self.tokenise_expected("CHIP", TokenType::Keyword));
         self.skip_nontokens();
+        println!("{:?}", self.tokenise_identifier());
+        self.skip_nontokens();
         println!("{:?}", self.tokenise_expected("{", TokenType::Symbol));
 
         tokens
+    }
+    /// If the current character is not a digit, all the characters up to the
+    /// next whitespace are considered to be an identifier. Returns token with
+    /// `literal` of that identifier and `token_type` `Identifier`.
+    /// Error otherwise.
+    fn tokenise_identifier(&mut self) -> Result<Token, UnexpectedToken> {
+        let err = Err(UnexpectedToken {
+            expected: Token {
+                literal: String::from("identifier"),
+                token_type: TokenType::Identifier,
+            },
+            nchar: self.nchar,
+            nline: self.nline,
+        });
+        let mut itr_char = self.itr.clone();
+        let next_ch = itr_char.next();
+        if next_ch == None {
+            return err;
+        }
+        let next_ch = next_ch.unwrap();
+        if !next_ch.is_alphabetic() && next_ch != '_' {
+            return err;
+        }
+        let mut itr_word =
+            self.itr.as_str().split(|ch: char| ch.is_whitespace());
+        let iden = itr_word.next().unwrap();
+        for _ in iden.chars() {
+            self.next_char();
+        }
+        Ok(Token {
+            literal: String::from(iden),
+            token_type: TokenType::Identifier,
+        })
     }
     /// If the current character starts `expct`,
     /// returns Token with literal `expct` and type `tpe`,
@@ -265,5 +300,29 @@ c=d
         assert_eq!((1, 9), (tokeniser.nline, tokeniser.nchar));
         tokeniser.skip_nontokens();
         assert_eq!((3, 12), (tokeniser.nline, tokeniser.nchar));
+    }
+    #[test]
+    fn tokenise_identifier() {
+        let mut tokeniser = Tokeniser::new("And");
+        let token_exp = Token {
+            literal: String::from("And"),
+            token_type: TokenType::Identifier,
+        };
+        let err_exp = UnexpectedToken {
+            expected: Token {
+                literal: String::from("identifier"),
+                token_type: TokenType::Identifier,
+            },
+            nchar: 1,
+            nline: 1,
+        };
+        assert_eq!(token_exp, tokeniser.tokenise_identifier().unwrap());
+        assert_eq!(tokeniser.nchar, 4);
+        let mut tokeniser = Tokeniser::new(" And");
+        assert_eq!(err_exp, tokeniser.tokenise_identifier().unwrap_err());
+        let mut tokeniser = Tokeniser::new("1And");
+        assert_eq!(err_exp, tokeniser.tokenise_identifier().unwrap_err());
+        let mut tokeniser = Tokeniser::new("");
+        assert_eq!(err_exp, tokeniser.tokenise_identifier().unwrap_err());
     }
 }
