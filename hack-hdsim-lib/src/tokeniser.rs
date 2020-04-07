@@ -1,6 +1,6 @@
 const _KEYWORDS: &[&str] = &["CHIP", "IN", "OUT", "PARTS"];
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 enum TokenType {
     Keyword,
     Symbol,
@@ -45,6 +45,21 @@ struct UnexpectedToken {
     expected: Token,
     nline: i32,
     nchar: i32,
+}
+
+impl UnexpectedToken {
+    fn new(
+        exp_literal: &str,
+        exp_type: TokenType,
+        nline: i32,
+        nchar: i32,
+    ) -> Self {
+        Self {
+            expected: Token::new(exp_literal, exp_type),
+            nline,
+            nchar,
+        }
+    }
 }
 
 struct Tokeniser<'a> {
@@ -98,11 +113,12 @@ impl<'a> Tokeniser<'a> {
     /// `literal` of that identifier and `token_type` `Identifier`.
     /// Error otherwise.
     fn tokenise_identifier(&mut self) -> Result<Token, UnexpectedToken> {
-        let err = Err(UnexpectedToken {
-            expected: Token::new("identifier", TokenType::Identifier),
-            nchar: self.nchar,
-            nline: self.nline,
-        });
+        let err = Err(UnexpectedToken::new(
+            "identifier",
+            TokenType::Identifier,
+            self.nchar,
+            self.nline,
+        ));
         let mut itr_char = self.itr.clone();
         let next_ch = itr_char.next();
         if next_ch == None {
@@ -139,11 +155,7 @@ impl<'a> Tokeniser<'a> {
             }
             return Ok(expected_token);
         }
-        Err(UnexpectedToken {
-            expected: expected_token,
-            nline: self.nline,
-            nchar: self.nchar,
-        })
+        Err(UnexpectedToken::new(expct, tpe, self.nline, self.nchar))
     }
     /// If the current character is a whitespace or starts a comment,
     /// moves the iterator to the character that starts a token.
@@ -280,11 +292,8 @@ c=d
         let chip_err = tokeniser
             .tokenise_expected("CHIP", TokenType::Keyword)
             .unwrap_err();
-        let chip_err_exp = UnexpectedToken {
-            expected: chip_expct_exp,
-            nline: 1,
-            nchar: 1,
-        };
+        let chip_err_exp =
+            UnexpectedToken::new("CHIP", TokenType::Keyword, 1, 1);
         assert_eq!(chip_err, chip_err_exp);
     }
     #[test]
@@ -307,11 +316,8 @@ c=d
     fn tokenise_identifier() {
         let mut tokeniser = Tokeniser::new("And");
         let token_exp = Token::new("And", TokenType::Identifier);
-        let err_exp = UnexpectedToken {
-            expected: Token::new("identifier", TokenType::Identifier),
-            nchar: 1,
-            nline: 1,
-        };
+        let err_exp =
+            UnexpectedToken::new("identifier", TokenType::Identifier, 1, 1);
         assert_eq!(token_exp, tokeniser.tokenise_identifier().unwrap());
         assert_eq!(tokeniser.nchar, 4);
         let mut tokeniser = Tokeniser::new(" And");
