@@ -99,13 +99,11 @@ impl<'a> Tokeniser<'a> {
         }
     }
     fn tokenise_chip(&mut self) -> Vec<Token> {
+        self.skip_nontokens();
         let tokens = Vec::new();
 
-        self.skip_nontokens();
         println!("{:?}", self.tokenise_expected("CHIP", TokenType::Keyword));
-        self.skip_nontokens();
         println!("{:?}", self.tokenise_identifier());
-        self.skip_nontokens();
         println!("{:?}", self.tokenise_expected("{", TokenType::Symbol));
 
         tokens
@@ -115,6 +113,7 @@ impl<'a> Tokeniser<'a> {
     /// `literal` of that identifier and `token_type` `Identifier`.
     /// Error otherwise.
     fn tokenise_identifier(&mut self) -> Result<Token, UnexpectedToken> {
+        self.skip_nontokens();
         let err = Err(UnexpectedToken::new(
             "identifier",
             TokenType::Identifier,
@@ -150,6 +149,7 @@ impl<'a> Tokeniser<'a> {
         expct: &str,
         tpe: TokenType,
     ) -> Result<Token, UnexpectedToken> {
+        self.skip_nontokens();
         let expected_token = Token::new(expct, tpe);
         if self.itr.as_str().starts_with(expct) {
             for _ in expct.chars() {
@@ -322,8 +322,6 @@ c=d
             UnexpectedToken::new("identifier", TokenType::Identifier, 1, 1);
         assert_eq!(token_exp, tokeniser.tokenise_identifier().unwrap());
         assert_eq!(tokeniser.nchar, 4);
-        let mut tokeniser = Tokeniser::new(" And");
-        assert_eq!(err_exp, tokeniser.tokenise_identifier().unwrap_err());
         let mut tokeniser = Tokeniser::new("1And");
         assert_eq!(err_exp, tokeniser.tokenise_identifier().unwrap_err());
         let mut tokeniser = Tokeniser::new("");
