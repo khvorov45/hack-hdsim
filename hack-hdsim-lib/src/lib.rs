@@ -1,2 +1,1 @@
-mod tokeniser;
-pub use tokeniser::TokenStream;
+pub mod tokeniser;

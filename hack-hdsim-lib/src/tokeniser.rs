@@ -1,7 +1,5 @@
-const _KEYWORDS: &[&str] = &["CHIP", "IN", "OUT", "PARTS"];
-
 #[derive(Debug, PartialEq, Copy, Clone)]
-enum TokenType {
+pub enum TokenType {
     Keyword,
     Symbol,
     Identifier,
@@ -16,7 +14,7 @@ pub struct Token {
 impl Token {
     /// Creates a new Token instance.
     /// Note that `literal` is converted into `String`
-    fn new(literal: &str, token_type: TokenType) -> Self {
+    pub fn new(literal: &str, token_type: TokenType) -> Self {
         Self {
             literal: String::from(literal),
             token_type,
@@ -24,24 +22,8 @@ impl Token {
     }
 }
 
-#[derive(Debug)]
-pub struct TokenStream {
-    tokens: Vec<Token>,
-}
-
-impl TokenStream {
-    pub fn new(contents: &str) -> Self {
-        let mut tokeniser = Tokeniser::new(contents);
-        let tokens = tokeniser.tokenise_chip();
-        Self { tokens }
-    }
-    pub fn tokens(&self) -> &Vec<Token> {
-        &self.tokens
-    }
-}
-
 #[derive(Debug, PartialEq)]
-struct UnexpectedToken {
+pub struct UnexpectedToken {
     expected: Token,
     nline: i32,
     nchar: i32,
@@ -50,7 +32,7 @@ struct UnexpectedToken {
 impl UnexpectedToken {
     /// Creates a new UnexpectedToken instance.
     /// Constructs a Token from `exp_literal` and `exp_type`
-    fn new(
+    pub fn new(
         exp_literal: &str,
         exp_type: TokenType,
         nline: i32,
@@ -64,7 +46,7 @@ impl UnexpectedToken {
     }
 }
 
-struct Tokeniser<'a> {
+pub struct Tokeniser<'a> {
     itr: std::str::Chars<'a>,
     nline: i32,
     nchar: i32,
@@ -74,7 +56,7 @@ impl<'a> Tokeniser<'a> {
     /// Creates a new Tokeniser
     /// Creates a character iterator over `contents` and sets line and chracter
     /// counters to 1.
-    fn new(contents: &'a str) -> Self {
+    pub fn new(contents: &'a str) -> Self {
         Self {
             itr: contents.chars(),
             nline: 1,
@@ -101,21 +83,22 @@ impl<'a> Tokeniser<'a> {
             self.nchar += 1;
         }
     }
-    fn tokenise_chip(&mut self) -> Vec<Token> {
+    pub fn tokenise_chip(&mut self) -> Result<Vec<Token>, UnexpectedToken> {
         self.skip_nontokens();
         let tokens = Vec::new();
 
-        println!("{:?}", self.tokenise_expected("CHIP", TokenType::Keyword));
+        println!("{:?}", self.tokenise_expected("CHIP", TokenType::Keyword)?);
         println!("{:?}", self.tokenise_identifier());
         println!("{:?}", self.tokenise_expected("{", TokenType::Symbol));
+        println!("{:?}", self.tokenise_expected("IN", TokenType::Keyword));
 
-        tokens
+        Ok(tokens)
     }
     /// If the current character is not a digit, all the characters up to the
     /// next whitespace are considered to be an identifier. Returns token with
     /// `literal` of that identifier and `token_type` `Identifier`.
     /// Error otherwise.
-    fn tokenise_identifier(&mut self) -> Result<Token, UnexpectedToken> {
+    pub fn tokenise_identifier(&mut self) -> Result<Token, UnexpectedToken> {
         self.skip_nontokens();
         let err = Err(UnexpectedToken::new(
             "identifier",
@@ -147,7 +130,7 @@ impl<'a> Tokeniser<'a> {
     /// returns Token with literal `expct` and type `tpe`,
     /// and advances the iterator just past `expct`
     /// Error if the current character does not start `expct`
-    fn tokenise_expected(
+    pub fn tokenise_expected(
         &mut self,
         expct: &str,
         tpe: TokenType,
