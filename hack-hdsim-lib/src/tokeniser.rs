@@ -71,6 +71,9 @@ struct Tokeniser<'a> {
 }
 
 impl<'a> Tokeniser<'a> {
+    /// Creates a new Tokeniser
+    /// Creates a character iterator over `contents` and sets line and chracter
+    /// counters to 1.
     fn new(contents: &'a str) -> Self {
         Self {
             itr: contents.chars(),
