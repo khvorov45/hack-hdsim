@@ -280,7 +280,7 @@ c=d
     }
     #[test]
     fn tokenise_expected() {
-        let contents = "CHIP {";
+        let contents = "  CHIP {";
         let mut tokeniser = Tokeniser::new(contents);
         let chip_expct = tokeniser
             .tokenise_expected("CHIP", TokenType::Keyword)
@@ -300,28 +300,27 @@ c=d
     }
     #[test]
     fn nline_nchar() {
-        let contents = "\t\t  CHIP
+        let contents = "\t\t  CHIP And
 // comment
 /*comment*/a=b";
         let mut tokeniser = Tokeniser::new(contents);
         assert_eq!((1, 1), (tokeniser.nline, tokeniser.nchar));
-        tokeniser.skip_nontokens();
-        assert_eq!((1, 5), (tokeniser.nline, tokeniser.nchar));
         tokeniser
             .tokenise_expected("CHIP", TokenType::Keyword)
             .unwrap();
         assert_eq!((1, 9), (tokeniser.nline, tokeniser.nchar));
+        tokeniser.tokenise_identifier().unwrap();
+        assert_eq!((1, 13), (tokeniser.nline, tokeniser.nchar));
         tokeniser.skip_nontokens();
         assert_eq!((3, 12), (tokeniser.nline, tokeniser.nchar));
     }
     #[test]
     fn tokenise_identifier() {
-        let mut tokeniser = Tokeniser::new("And");
+        let mut tokeniser = Tokeniser::new("/**/And");
         let token_exp = Token::new("And", TokenType::Identifier);
         let err_exp =
             UnexpectedToken::new("identifier", TokenType::Identifier, 1, 1);
         assert_eq!(token_exp, tokeniser.tokenise_identifier().unwrap());
-        assert_eq!(tokeniser.nchar, 4);
         let mut tokeniser = Tokeniser::new("1And");
         assert_eq!(err_exp, tokeniser.tokenise_identifier().unwrap_err());
         let mut tokeniser = Tokeniser::new("");
