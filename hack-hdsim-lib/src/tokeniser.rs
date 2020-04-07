@@ -48,6 +48,8 @@ struct UnexpectedToken {
 }
 
 impl UnexpectedToken {
+    /// Creates a new UnexpectedToken instance.
+    /// Constructs a Token from `exp_literal` and `exp_type`
     fn new(
         exp_literal: &str,
         exp_type: TokenType,
