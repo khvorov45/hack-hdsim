@@ -13,6 +13,17 @@ pub struct Token {
     token_type: TokenType,
 }
 
+impl Token {
+    /// Creates a new Token instance.
+    /// Note that `literal` is converted into `String`
+    fn new(literal: &str, token_type: TokenType) -> Self {
+        Self {
+            literal: String::from(literal),
+            token_type,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct TokenStream {
     tokens: Vec<Token>,
@@ -88,10 +99,7 @@ impl<'a> Tokeniser<'a> {
     /// Error otherwise.
     fn tokenise_identifier(&mut self) -> Result<Token, UnexpectedToken> {
         let err = Err(UnexpectedToken {
-            expected: Token {
-                literal: String::from("identifier"),
-                token_type: TokenType::Identifier,
-            },
+            expected: Token::new("identifier", TokenType::Identifier),
             nchar: self.nchar,
             nline: self.nline,
         });
@@ -124,10 +132,7 @@ impl<'a> Tokeniser<'a> {
         expct: &str,
         tpe: TokenType,
     ) -> Result<Token, UnexpectedToken> {
-        let expected_token = Token {
-            literal: String::from(expct),
-            token_type: tpe,
-        };
+        let expected_token = Token::new(expct, tpe);
         if self.itr.as_str().starts_with(expct) {
             for _ in expct.chars() {
                 self.next_char();
@@ -266,10 +271,7 @@ c=d
         let chip_expct = tokeniser
             .tokenise_expected("CHIP", TokenType::Keyword)
             .unwrap();
-        let chip_expct_exp = Token {
-            literal: String::from("CHIP"),
-            token_type: TokenType::Keyword,
-        };
+        let chip_expct_exp = Token::new("CHIP", TokenType::Keyword);
         assert_eq!(chip_expct, chip_expct_exp);
         assert_eq!(Some(' '), tokeniser.itr.next());
         assert_eq!(Some('{'), tokeniser.itr.next());
@@ -304,15 +306,9 @@ c=d
     #[test]
     fn tokenise_identifier() {
         let mut tokeniser = Tokeniser::new("And");
-        let token_exp = Token {
-            literal: String::from("And"),
-            token_type: TokenType::Identifier,
-        };
+        let token_exp = Token::new("And", TokenType::Identifier);
         let err_exp = UnexpectedToken {
-            expected: Token {
-                literal: String::from("identifier"),
-                token_type: TokenType::Identifier,
-            },
+            expected: Token::new("identifier", TokenType::Identifier),
             nchar: 1,
             nline: 1,
         };
