@@ -26,8 +26,11 @@ pub struct Opt {
 
 pub fn run(opt: Opt) -> Result<()> {
     let filepath = opt.file.as_path();
-    let _contents = std::fs::read_to_string(filepath)
+    let contents = std::fs::read_to_string(filepath)
         .chain_err(|| ErrorKind::FileReadError(opt.file))?;
+    let mut tokeniser =
+        hack_hdsim_lib::tokeniser::Tokeniser::new(contents.as_str());
+    tokeniser.tokenise_chip().unwrap();
     Ok(())
 }
 
