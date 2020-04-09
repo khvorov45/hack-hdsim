@@ -126,7 +126,6 @@ impl<'a> Tokeniser<'a> {
         tokens.push(self.tokenise_expected(":")?);
         tokens.append(&mut self.tokenise_parts_list()?);
         tokens.push(self.tokenise_expected("}")?);
-        println!("{:#?}", tokens);
         Ok(tokens)
     }
     /// Tokenises consecutive part declarations
