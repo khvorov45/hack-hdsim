@@ -1,5 +1,5 @@
 const KEYWORDS: &[&str] = &["CHIP", "IN", "OUT", "PARTS"];
-const SYMBOLS: &[&str] = &["=", "{"];
+const SYMBOLS: &[&str] = &["=", "{", ";", "}", ":"];
 
 /// Holds the types the tokens may have
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -118,6 +118,12 @@ impl<'a> Tokeniser<'a> {
         tokens.push(self.tokenise_expected("{")?);
         tokens.push(self.tokenise_expected("IN")?);
         tokens.append(&mut self.tokenise_identifier_list()?);
+        tokens.push(self.tokenise_expected(";")?);
+        tokens.push(self.tokenise_expected("OUT")?);
+        tokens.append(&mut self.tokenise_identifier_list()?);
+        tokens.push(self.tokenise_expected(";")?);
+        tokens.push(self.tokenise_expected("PARTS")?);
+        tokens.push(self.tokenise_expected(":")?);
         println!("{:#?}", tokens);
         Ok(tokens)
     }
