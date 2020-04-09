@@ -19,7 +19,7 @@ fn contains(arr: &[&str], word: &str) -> bool {
     false
 }
 
-/// Holds the represention of a token
+/// Holds the representation of a token
 #[derive(Debug, PartialEq)]
 pub struct Token {
     literal: String,
@@ -74,7 +74,7 @@ pub struct Tokeniser<'a> {
 
 impl<'a> Tokeniser<'a> {
     /// Creates a new Tokeniser
-    /// Creates a character iterator over `contents` and sets line and chracter
+    /// Creates a character iterator over `contents` and sets line and character
     /// counters to 1.
     pub fn new(contents: &'a str) -> Self {
         Self {
