@@ -157,6 +157,9 @@ impl<'a> Tokeniser<'a> {
         let mut itr_word =
             self.itr.as_str().split(|ch: char| !ch.is_alphanumeric());
         let iden = itr_word.next().unwrap();
+        if contains(KEYWORDS, iden) || contains(SYMBOLS, iden) {
+            return err;
+        }
         for _ in iden.chars() {
             self.next_char();
         }
@@ -340,6 +343,10 @@ c=d
         let mut tokeniser = Tokeniser::new("1And");
         assert_eq!(err_exp, tokeniser.tokenise_identifier().unwrap_err());
         let mut tokeniser = Tokeniser::new("");
+        assert_eq!(err_exp, tokeniser.tokenise_identifier().unwrap_err());
+        let mut tokeniser = Tokeniser::new("{");
+        assert_eq!(err_exp, tokeniser.tokenise_identifier().unwrap_err());
+        let mut tokeniser = Tokeniser::new("CHIP");
         assert_eq!(err_exp, tokeniser.tokenise_identifier().unwrap_err());
     }
     #[test]
