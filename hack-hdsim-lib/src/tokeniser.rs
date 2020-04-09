@@ -133,9 +133,6 @@ impl<'a> Tokeniser<'a> {
     pub fn tokensise_part(&mut self) {
         self.skip_nontokens();
     }
-    pub fn tokenise_assingment_list(&mut self) {
-        self.skip_nontokens();
-    }
     /// Returns a vector of tokens of assignments
     pub fn tokenise_assignment_list(
         &mut self,
