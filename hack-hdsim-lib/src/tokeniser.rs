@@ -136,6 +136,25 @@ impl<'a> Tokeniser<'a> {
     pub fn tokenise_assingment_list(&mut self) {
         self.skip_nontokens();
     }
+    /// Returns a vector of tokens of assignments
+    pub fn tokenise_assignment_list(
+        &mut self,
+    ) -> Result<Vec<Token>, UnexpectedToken> {
+        let mut tokens = Vec::new();
+        tokens.append(&mut self.tokenise_assignment()?);
+        self.skip_nontokens();
+        while let Some(ch) = self.next_char_peek() {
+            if ch == ',' {
+                self.next_char();
+                tokens.append(&mut self.tokenise_assignment()?);
+                self.skip_nontokens();
+            } else {
+                break;
+            }
+        }
+        Ok(tokens)
+    }
+    /// Tokenises assignment of the form a=b
     pub fn tokenise_assignment(
         &mut self,
     ) -> Result<Vec<Token>, UnexpectedToken> {
@@ -151,17 +170,14 @@ impl<'a> Tokeniser<'a> {
     ) -> Result<Vec<Token>, UnexpectedToken> {
         let mut tokens = Vec::new();
         tokens.push(self.tokenise_identifier()?);
+        self.skip_nontokens();
         while let Some(ch) = self.next_char_peek() {
             if ch == ',' {
                 self.next_char();
                 tokens.push(self.tokenise_identifier()?);
-            } else {
                 self.skip_nontokens();
-                if let Some(ch) = self.next_char_peek() {
-                    if ch != ',' {
-                        break;
-                    }
-                }
+            } else {
+                break;
             }
         }
         Ok(tokens)
@@ -418,6 +434,24 @@ c=d
             Tokeniser::new("  a  =  b  ").tokenise_assignment().unwrap();
         let tokens_exp =
             vec![Token::new("a"), Token::new("="), Token::new("b")];
+        assert_eq!(tokens, tokens_exp);
+    }
+    #[test]
+    fn tokenise_assignment_list() {
+        let tokens = Tokeniser::new(" a = b , c = d , e = f ")
+            .tokenise_assignment_list()
+            .unwrap();
+        let tokens_exp = vec![
+            Token::new("a"),
+            Token::new("="),
+            Token::new("b"),
+            Token::new("c"),
+            Token::new("="),
+            Token::new("d"),
+            Token::new("e"),
+            Token::new("="),
+            Token::new("f"),
+        ];
         assert_eq!(tokens, tokens_exp);
     }
 }
