@@ -1,5 +1,5 @@
 const KEYWORDS: &[&str] = &["CHIP", "IN", "OUT", "PARTS"];
-const SYMBOLS: &[&str] = &["=", "{", ";", "}", ":"];
+const SYMBOLS: &[&str] = &["=", "{", ";", "}", ":", "(", ")"];
 
 /// Holds the types the tokens may have
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -130,8 +130,14 @@ impl<'a> Tokeniser<'a> {
     pub fn tokenise_parts_list(&mut self) {
         self.skip_nontokens();
     }
-    pub fn tokensise_part(&mut self) {
-        self.skip_nontokens();
+    pub fn tokenise_part(&mut self) -> Result<Vec<Token>, UnexpectedToken> {
+        let mut tokens = Vec::new();
+        tokens.push(self.tokenise_identifier()?);
+        tokens.push(self.tokenise_expected("(")?);
+        tokens.append(&mut self.tokenise_assignment_list()?);
+        tokens.push(self.tokenise_expected(")")?);
+        tokens.push(self.tokenise_expected(";")?);
+        Ok(tokens)
     }
     /// Returns a vector of tokens of assignments
     pub fn tokenise_assignment_list(
@@ -448,6 +454,28 @@ c=d
             Token::new("e"),
             Token::new("="),
             Token::new("f"),
+        ];
+        assert_eq!(tokens, tokens_exp);
+    }
+    #[test]
+    fn tokenise_part() {
+        let tokens = Tokeniser::new(" Nand( a = a, b = b, out = c ); ")
+            .tokenise_part()
+            .unwrap();
+        let tokens_exp = vec![
+            Token::new("Nand"),
+            Token::new("("),
+            Token::new("a"),
+            Token::new("="),
+            Token::new("a"),
+            Token::new("b"),
+            Token::new("="),
+            Token::new("b"),
+            Token::new("out"),
+            Token::new("="),
+            Token::new("c"),
+            Token::new(")"),
+            Token::new(";"),
         ];
         assert_eq!(tokens, tokens_exp);
     }

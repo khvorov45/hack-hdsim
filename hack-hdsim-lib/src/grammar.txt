@@ -4,8 +4,8 @@ CHIP Identifier {
 
     PARTS:
 
-    Identifier(AssignmentList),
-    Identifier(AssignmentList),
+    Identifier(AssignmentList);
+    Identifier(AssignmentList);
     ...
 }
 
