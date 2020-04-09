@@ -127,6 +127,24 @@ impl<'a> Tokeniser<'a> {
         println!("{:#?}", tokens);
         Ok(tokens)
     }
+    pub fn tokenise_parts_list(&mut self) {
+        self.skip_nontokens();
+    }
+    pub fn tokensise_part(&mut self) {
+        self.skip_nontokens();
+    }
+    pub fn tokenise_assingment_list(&mut self) {
+        self.skip_nontokens();
+    }
+    pub fn tokenise_assignment(
+        &mut self,
+    ) -> Result<Vec<Token>, UnexpectedToken> {
+        let mut tokens = Vec::new();
+        tokens.push(self.tokenise_identifier()?);
+        tokens.push(self.tokenise_expected("=")?);
+        tokens.push(self.tokenise_identifier()?);
+        Ok(tokens)
+    }
     /// Returns a vector of tokens of identifiers
     pub fn tokenise_identifier_list(
         &mut self,
@@ -393,5 +411,13 @@ c=d
             token_type: TokenType::Identifier,
         };
         assert_eq!(token, token_exp);
+    }
+    #[test]
+    fn tokenise_assignment() {
+        let tokens =
+            Tokeniser::new("  a  =  b  ").tokenise_assignment().unwrap();
+        let tokens_exp =
+            vec![Token::new("a"), Token::new("="), Token::new("b")];
+        assert_eq!(tokens, tokens_exp);
     }
 }
