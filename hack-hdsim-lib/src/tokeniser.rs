@@ -1,3 +1,7 @@
+const KEYWORDS: &[&str] = &["CHIP", "IN", "OUT", "PARTS"];
+const SYMBOLS: &[&str] = &["=", "{"];
+
+/// Holds the types the tokens may have
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum TokenType {
     Keyword,
@@ -5,9 +9,7 @@ pub enum TokenType {
     Identifier,
 }
 
-const KEYWORDS: &[&str] = &["CHIP", "IN", "OUT", "PARTS"];
-const SYMBOLS: &[&str] = &["=", "{"];
-
+/// Returns `true` if `word` is in `arr`, `false` otherwise
 fn contains(arr: &[&str], word: &str) -> bool {
     for arr_word in arr {
         if &word == arr_word {
@@ -17,6 +19,7 @@ fn contains(arr: &[&str], word: &str) -> bool {
     false
 }
 
+/// Holds the represention of a token
 #[derive(Debug, PartialEq)]
 pub struct Token {
     literal: String,
@@ -62,6 +65,7 @@ impl UnexpectedToken {
     }
 }
 
+/// Tokenises a given string
 pub struct Tokeniser<'a> {
     itr: std::str::Chars<'a>,
     nline: i32,
@@ -105,6 +109,7 @@ impl<'a> Tokeniser<'a> {
             self.nchar += 1;
         }
     }
+    /// Tokenises the entire chip description
     pub fn tokenise_chip(&mut self) -> Result<Vec<Token>, UnexpectedToken> {
         self.skip_nontokens();
         let mut tokens = Vec::new();
