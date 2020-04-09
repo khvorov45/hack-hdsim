@@ -124,12 +124,29 @@ impl<'a> Tokeniser<'a> {
         tokens.push(self.tokenise_expected(";")?);
         tokens.push(self.tokenise_expected("PARTS")?);
         tokens.push(self.tokenise_expected(":")?);
+        tokens.append(&mut self.tokenise_parts_list()?);
+        tokens.push(self.tokenise_expected("}")?);
         println!("{:#?}", tokens);
         Ok(tokens)
     }
-    pub fn tokenise_parts_list(&mut self) {
+    /// Tokenises consecutive part declarations
+    pub fn tokenise_parts_list(
+        &mut self,
+    ) -> Result<Vec<Token>, UnexpectedToken> {
+        let mut tokens = Vec::new();
+        tokens.append(&mut self.tokenise_part()?);
         self.skip_nontokens();
+        while let Some(ch) = self.next_char_peek() {
+            if ch != '}' {
+                tokens.append(&mut self.tokenise_part()?);
+                self.skip_nontokens();
+            } else {
+                break;
+            }
+        }
+        Ok(tokens)
     }
+    /// Tokenises a part of the form PartName(pin1=pin2, ...);
     pub fn tokenise_part(&mut self) -> Result<Vec<Token>, UnexpectedToken> {
         let mut tokens = Vec::new();
         tokens.push(self.tokenise_identifier()?);
@@ -477,6 +494,23 @@ c=d
             Token::new(")"),
             Token::new(";"),
         ];
+        assert_eq!(tokens, tokens_exp);
+    }
+    #[test]
+    fn tokenise_parts_list() {
+        let tokens = Tokeniser::new(
+            " Nand( a = a, b = b, out = c ); Nand(a=c, b=c, out=out);",
+        )
+        .tokenise_parts_list()
+        .unwrap();
+        let mut tokens_exp = Tokeniser::new(" Nand( a = a, b = b, out = c );")
+            .tokenise_part()
+            .unwrap();
+        tokens_exp.append(
+            &mut Tokeniser::new(" Nand(a=c, b=c, out=out);")
+                .tokenise_part()
+                .unwrap(),
+        );
         assert_eq!(tokens, tokens_exp);
     }
 }
