@@ -1,3 +1,9 @@
+// TO DO
+// Don't eat commas?
+// Tokenize a[1..10] type statements
+// Better optional tokenisation - empty vectors?
+// Split token and tokeniser modules?
+
 const KEYWORDS: &[&str] = &["CHIP", "IN", "OUT", "PARTS"];
 const SYMBOLS: &[&str] = &["=", "{", ";", "}", ":", "(", ")", "[", "]"];
 
