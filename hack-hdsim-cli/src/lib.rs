@@ -30,7 +30,8 @@ pub fn run(opt: Opt) -> Result<()> {
         .chain_err(|| ErrorKind::FileReadError(opt.file))?;
     let mut tokeniser =
         hack_hdsim_lib::tokeniser::Tokeniser::new(contents.as_str());
-    tokeniser.tokenise_chip().unwrap();
+    let tokens = tokeniser.tokenise_chip().unwrap();
+    println!("{:#?}", tokens);
     Ok(())
 }
 
