@@ -1,31 +1,40 @@
 pub type Pin = bool;
 
-pub type Pinline = Vec<Pin>;
-
-pub type Interface = std::collections::HashMap<String, Pinline>;
-
-pub fn add_line(
-    interface: &mut Interface,
-    line_name: &str,
-    line_capacity: usize,
-) {
-    interface.insert(
-        String::from(line_name),
-        Pinline::with_capacity(line_capacity),
-    );
+pub struct Pinline {
+    name: String,
+    pins: Vec<Pin>,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn add_line_test() {
-        let mut input = Interface::new();
-        add_line(&mut input, "a", 1);
-        add_line(&mut input, "b", 16);
-        assert!(input.contains_key("a"));
-        assert!(input.contains_key("b"));
-        assert_eq!(input["a"].capacity(), 1);
-        assert_eq!(input["b"].capacity(), 16);
+impl Pinline {
+    pub fn new(name: &str, capacity: usize) -> Self {
+        Self {
+            name: name.to_string(),
+            pins: Vec::<Pin>::with_capacity(capacity),
+        }
+    }
+    pub fn name(&self) -> &str {
+        self.name.as_str()
+    }
+    pub fn pins(&self) -> &Vec<Pin> {
+        &self.pins
+    }
+}
+
+pub type Interface = Vec<Pinline>;
+
+pub struct Chip {
+    input: Interface,
+    output: Interface,
+}
+
+impl Chip {
+    pub fn new(input: Interface, output: Interface) -> Self {
+        Self { input, output }
+    }
+    pub fn input(&self) -> &Interface {
+        &self.input
+    }
+    pub fn output(&self) -> &Interface {
+        &self.output
     }
 }
