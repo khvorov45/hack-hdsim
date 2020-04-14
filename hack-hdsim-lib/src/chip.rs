@@ -1,5 +1,6 @@
 pub type Pin = bool;
 
+#[derive(Debug, PartialEq)]
 pub struct Pinline {
     name: String,
     pins: Vec<Pin>,
@@ -22,6 +23,7 @@ impl Pinline {
 
 pub type Interface = Vec<Pinline>;
 
+#[derive(Debug)]
 pub struct Chip {
     input: Interface,
     output: Interface,
@@ -36,5 +38,17 @@ impl Chip {
     }
     pub fn output(&self) -> &Interface {
         &self.output
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn chip_new() {
+        let _chip = Chip::new(
+            vec![Pinline::new("a", 1), Pinline::new("b", 1)],
+            vec![Pinline::new("c", 1)],
+        );
     }
 }
