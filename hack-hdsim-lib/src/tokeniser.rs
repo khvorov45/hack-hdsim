@@ -310,9 +310,9 @@ impl<'a> Tokeniser<'a> {
     /// non-whitespace character.
     /// Returns `true` if moved the iterator, `false` otherwise.
     fn skip_whitespace(&mut self) -> bool {
-        let mut itr = self.itr.clone();
+        let itr = self.itr.clone();
         let mut moved = false;
-        while let Some(ch) = itr.next() {
+        for ch in itr {
             if ch.is_whitespace() {
                 self.next_char();
                 moved = true;
