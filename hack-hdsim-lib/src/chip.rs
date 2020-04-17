@@ -58,13 +58,18 @@ impl Interface {
 
 #[derive(Debug)]
 pub struct Chip {
+    name: String,
     input: Interface,
     output: Interface,
 }
 
 impl Chip {
-    pub fn new(input: Interface, output: Interface) -> Self {
-        Self { input, output }
+    pub fn new(name: &str, input: Interface, output: Interface) -> Self {
+        Self {
+            name: name.to_string(),
+            input,
+            output,
+        }
     }
     pub fn input(&self) -> &Interface {
         &self.input
@@ -83,6 +88,7 @@ mod tests {
     #[test]
     fn chip_new() {
         let mut and_chip = Chip::new(
+            "And",
             Interface::new(&[("a", 1), ("b", 1)]),
             Interface::new(&[("c", 1)]),
         );
