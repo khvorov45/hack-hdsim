@@ -75,6 +75,9 @@ impl Chip {
     pub fn input(&self) -> &Interface {
         &self.input
     }
+    pub fn set_input(&mut self, name: &str, vals: Vec<Pin>) {
+        self.input.set(name, vals);
+    }
     pub fn output(&self) -> &Interface {
         &self.output
     }
@@ -96,8 +99,8 @@ mod tests {
         let mut and_chip = Chip::new("And", and_input, and_output);
         println!("{:#?}", and_chip.input);
         println!("{:#?}", and_chip.output);
-        and_chip.input.set("a", vec![true]);
-        and_chip.input.set("b", vec![true]);
+        and_chip.set_input("a", vec![true]);
+        and_chip.set_input("b", vec![true]);
         // assert!(false);
     }
 }
