@@ -86,6 +86,28 @@ impl Chip {
     }
 }
 
+#[derive(Debug)]
+pub struct Nand {
+    name: String,
+    a: Pin,
+    b: Pin,
+    out: Pin,
+}
+
+impl Nand {
+    pub fn new(name: &str) -> Self {
+        Self {
+            name: String::from(name),
+            a: true,
+            b: true,
+            out: false,
+        }
+    }
+    pub fn process_input(&mut self) {
+        self.out = !(self.a && self.b);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -97,6 +119,7 @@ mod tests {
         let mut and_output = Interface::new(1);
         and_output.push(Pinline::new("out", 1));
         let mut and_chip = Chip::new("And", and_input, and_output);
+        // Need to connect to other chips somehow
         println!("{:#?}", and_chip.input);
         println!("{:#?}", and_chip.output);
         and_chip.set_input("a", vec![true]);
