@@ -30,12 +30,13 @@ pub struct Interface {
 }
 
 impl Interface {
-    pub fn new(lines: &[(&str, usize)]) -> Self {
-        let mut pinlines = Vec::<Pinline>::with_capacity(lines.len());
-        for line in lines {
-            pinlines.push(Pinline::new(line.0, line.1))
+    pub fn new(capacity: usize) -> Self {
+        Self {
+            pinlines: Vec::<Pinline>::with_capacity(capacity),
         }
-        Self { pinlines }
+    }
+    pub fn push(&mut self, pinline: Pinline) {
+        self.pinlines.push(pinline);
     }
     pub fn set(&mut self, name: &str, vals: Vec<Pin>) {
         for pinline in &mut self.pinlines {
@@ -87,11 +88,12 @@ mod tests {
     use super::*;
     #[test]
     fn chip_new() {
-        let mut and_chip = Chip::new(
-            "And",
-            Interface::new(&[("a", 1), ("b", 1)]),
-            Interface::new(&[("c", 1)]),
-        );
+        let mut and_input = Interface::new(2);
+        and_input.push(Pinline::new("a", 1));
+        and_input.push(Pinline::new("b", 1));
+        let mut and_output = Interface::new(1);
+        and_output.push(Pinline::new("out", 1));
+        let mut and_chip = Chip::new("And", and_input, and_output);
         println!("{:#?}", and_chip.input);
         println!("{:#?}", and_chip.output);
         and_chip.input.set("a", vec![true]);
