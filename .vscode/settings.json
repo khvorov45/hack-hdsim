@@ -10,5 +10,10 @@
         "markdown",
         "latex",
         "rust"
+    ],
+    "cSpell.words": [
+        "Alphanum",
+        "Nand",
+        "vals"
     ]
 }

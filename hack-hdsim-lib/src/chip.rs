@@ -22,6 +22,9 @@ impl Pinline {
     pub fn set(&mut self, vals: Vec<Pin>) {
         self.pins = vals;
     }
+    pub fn connect(&self, indices: Vec<u32>) -> PinlineConnected {
+        PinlineConnected::new(self.name.as_str(), indices)
+    }
 }
 
 #[derive(Debug)]
@@ -58,19 +61,77 @@ impl Interface {
 }
 
 #[derive(Debug)]
+pub struct PinlineConnected {
+    name: String,
+    indices: Vec<u32>,
+}
+
+impl PinlineConnected {
+    pub fn new(name: &str, indices: Vec<u32>) -> Self {
+        Self {
+            name: name.to_string(),
+            indices,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Connection {
+    from: PinlineConnected,
+    to: PinlineConnected,
+}
+
+impl Connection {
+    pub fn new(from: PinlineConnected, to: PinlineConnected) -> Self {
+        Self { from, to }
+    }
+}
+
+#[derive(Debug)]
 pub struct Chip {
     name: String,
     input: Interface,
     output: Interface,
+    parts: Vec<ChipConnected>,
+}
+
+#[derive(Debug)]
+pub struct ChipConnected {
+    chip: Chip,
+    connections: Vec<Connection>,
 }
 
 impl Chip {
-    pub fn new(name: &str, input: Interface, output: Interface) -> Self {
+    pub fn new(
+        name: &str,
+        input: Interface,
+        output: Interface,
+        parts: Vec<ChipConnected>,
+    ) -> Self {
         Self {
             name: name.to_string(),
             input,
             output,
+            parts,
         }
+    }
+    pub fn builtin(name: &str) -> Self {
+        if name == "Nand" {
+            let mut input = Interface::new(2);
+            input.push(Pinline::new("a", 1));
+            input.push(Pinline::new("b", 1));
+
+            let mut output = Interface::new(1);
+            output.push(Pinline::new("out", 1));
+
+            return Self {
+                name: "Nand".to_string(),
+                input,
+                output,
+                parts: Vec::<ChipConnected>::with_capacity(0),
+            };
+        }
+        panic!("No such built-in chip: {}", name)
     }
     pub fn input(&self) -> &Interface {
         &self.input
@@ -80,9 +141,6 @@ impl Chip {
     }
     pub fn output(&self) -> &Interface {
         &self.output
-    }
-    fn _call() {
-        // this needs to be able to call other chips somehow
     }
 }
 
@@ -113,17 +171,42 @@ mod tests {
     use super::*;
     #[test]
     fn chip_new() {
+        let a_input_pinline = Pinline::new("a", 1);
+        let b_input_pinline = Pinline::new("b", 1);
+
         let mut and_input = Interface::new(2);
-        and_input.push(Pinline::new("a", 1));
-        and_input.push(Pinline::new("b", 1));
+        and_input.push(a_input_pinline);
+        and_input.push(b_input_pinline);
+
+        let out_output_pinline = Pinline::new("out", 1);
         let mut and_output = Interface::new(1);
-        and_output.push(Pinline::new("out", 1));
-        let mut and_chip = Chip::new("And", and_input, and_output);
-        // Need to connect to other chips somehow
-        println!("{:#?}", and_chip.input);
-        println!("{:#?}", and_chip.output);
-        and_chip.set_input("a", vec![true]);
-        and_chip.set_input("b", vec![true]);
-        // assert!(false);
+        and_output.push(out_output_pinline);
+
+        let a_connection = PinlineConnected::new("a", vec![0]);
+        let b_connection = PinlineConnected::new("b", vec![0]);
+        let out_connection = PinlineConnected::new("out", vec![0]);
+
+        let a_to_a =
+            Connection::new(a_connection, PinlineConnected::new("a", vec![0]));
+
+        let b_to_b =
+            Connection::new(b_connection, PinlineConnected::new("b", vec![0]));
+
+        let out_to_out = Connection::new(
+            out_connection,
+            PinlineConnected::new("out", vec![0]),
+        );
+
+        let mut and_parts = Vec::<ChipConnected>::with_capacity(1);
+        and_parts.push(ChipConnected {
+            chip: Chip::builtin("Nand"),
+            connections: vec![a_to_a, b_to_b, out_to_out],
+        });
+
+        let and_chip = Chip::new("And", and_input, and_output, and_parts);
+
+        println!("{:#?}", and_chip);
+
+        assert!(false);
     }
 }
