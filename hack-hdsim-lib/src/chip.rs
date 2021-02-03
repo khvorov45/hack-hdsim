@@ -17,7 +17,8 @@ pub struct Interface {
 #[derive(Debug)]
 pub struct Pinline {
     name: String,
-    pin_count: u32,
+    pin_count: usize,
+    pins: Vec<Pin>,
 }
 
 /// A set of chips connected to the pins of another chip
@@ -45,6 +46,13 @@ pub struct Connection {
 pub struct PinlineConnected {
     name: String,
     indices: Vec<u32>,
+}
+
+/// The pin
+#[derive(Debug, Clone)]
+pub enum Pin {
+    Set(bool),
+    Unset,
 }
 
 impl Chip {
@@ -76,16 +84,17 @@ impl Chip {
 }
 
 impl Pinline {
-    pub fn new(name: &str, pin_count: u32) -> Self {
+    pub fn new(name: &str, pin_count: usize) -> Self {
         Self {
             name: name.to_string(),
             pin_count,
+            pins: vec![Pin::Unset; pin_count],
         }
     }
     pub fn name(&self) -> &str {
         self.name.as_str()
     }
-    pub fn pin_count(&self) -> u32 {
+    pub fn pin_count(&self) -> usize {
         self.pin_count
     }
 }
