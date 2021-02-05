@@ -1,3 +1,20 @@
+/// Applies to both user and built-in chips
+pub trait Chip {
+    fn get_name(&self) -> &str;
+    fn process_input(&self, input: ChipIO) -> ChipIO;
+}
+
+/// Input/Output for any chip
+pub struct ChipIO {
+    pinlines: Vec<PinlineIO>,
+}
+
+/// One pinline's pins
+pub struct PinlineIO {
+    name: String,
+    pins: Vec<Pin>,
+}
+
 /// User-defined chip
 #[derive(Debug)]
 pub struct UserChip {
@@ -18,7 +35,6 @@ pub struct Interface {
 pub struct Pinline {
     name: String,
     pin_count: usize,
-    pins: Vec<Pin>,
 }
 
 /// A set of chips connected to the pins of another chip
@@ -49,11 +65,7 @@ pub struct PinlineConnected {
 }
 
 /// The pin
-#[derive(Debug, Clone)]
-pub enum Pin {
-    Set(bool),
-    Unset,
-}
+pub type Pin = bool;
 
 impl UserChip {
     pub fn new(
@@ -69,9 +81,6 @@ impl UserChip {
             parts,
         }
     }
-    pub fn name(&self) -> &str {
-        self.name.as_str()
-    }
     pub fn input(&self) -> &Interface {
         &self.input
     }
@@ -83,12 +92,39 @@ impl UserChip {
     }
 }
 
+impl Chip for UserChip {
+    fn get_name(&self) -> &str {
+        self.name.as_str()
+    }
+    fn process_input(&self, input: ChipIO) -> ChipIO {
+        // Compare input to spec here presumably
+        // Then construct new input for the children
+        // Then call this same method on all the children
+        // Then collect all their output and assemble the output
+        ChipIO::new(vec![PinlineIO::new("a", vec![true])])
+    }
+}
+
+impl ChipIO {
+    pub fn new(pinlines: Vec<PinlineIO>) -> Self {
+        Self { pinlines }
+    }
+}
+
+impl PinlineIO {
+    pub fn new(name: &str, pins: Vec<Pin>) -> Self {
+        Self {
+            name: name.to_string(),
+            pins,
+        }
+    }
+}
+
 impl Pinline {
     pub fn new(name: &str, pin_count: usize) -> Self {
         Self {
             name: name.to_string(),
             pin_count,
-            pins: vec![Pin::Unset; pin_count],
         }
     }
     pub fn name(&self) -> &str {
