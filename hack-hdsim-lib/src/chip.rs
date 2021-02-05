@@ -5,11 +5,13 @@ pub trait Chip {
 }
 
 /// Input/Output for any chip
+#[derive(Debug)]
 pub struct ChipIO {
     pinlines: Vec<PinlineIO>,
 }
 
 /// One pinline's pins
+#[derive(Debug)]
 pub struct PinlineIO {
     name: String,
     pins: Vec<Pin>,
@@ -17,49 +19,49 @@ pub struct PinlineIO {
 
 /// User-defined chip
 #[derive(Debug)]
-pub struct UserChip {
+pub struct UserChipSpec {
     name: String,
-    input: Interface,
-    output: Interface,
-    parts: Parts,
+    input: ChipIOSpec,
+    output: ChipIOSpec,
+    parts: ChildrenSpec,
 }
 
 /// Input/output of a chip
 #[derive(Debug)]
-pub struct Interface {
-    pinlines: Vec<Pinline>,
+pub struct ChipIOSpec {
+    pinlines: Vec<PinlineSpec>,
 }
 
 /// A set of pins with a name
 #[derive(Debug)]
-pub struct Pinline {
+pub struct PinlineSpec {
     name: String,
     pin_count: usize,
 }
 
 /// A set of chips connected to the pins of another chip
 #[derive(Debug)]
-pub struct Parts {
-    chips: Vec<ChipConnected>,
+pub struct ChildrenSpec {
+    children: Vec<ChildSpec>,
 }
 
 /// A chip connected to another chip
 #[derive(Debug)]
-pub struct ChipConnected {
+pub struct ChildSpec {
     name: String,
-    connections: Vec<Connection>,
+    connections: Vec<ChildConnectionSpec>,
 }
 
 /// A pinline of one chip going to a pinline of another
 #[derive(Debug)]
-pub struct Connection {
-    own: PinlineConnected,
-    foreign: PinlineConnected,
+pub struct ChildConnectionSpec {
+    own: PinlineConnectionSpec,
+    foreign: PinlineConnectionSpec,
 }
 
 /// Name and pin indices of a pinline that connect somewhere
 #[derive(Debug)]
-pub struct PinlineConnected {
+pub struct PinlineConnectionSpec {
     name: String,
     indices: Vec<u32>,
 }
@@ -67,12 +69,12 @@ pub struct PinlineConnected {
 /// The pin
 pub type Pin = bool;
 
-impl UserChip {
+impl UserChipSpec {
     pub fn new(
         name: &str,
-        input: Interface,
-        output: Interface,
-        parts: Parts,
+        input: ChipIOSpec,
+        output: ChipIOSpec,
+        parts: ChildrenSpec,
     ) -> Self {
         Self {
             name: name.to_string(),
@@ -81,18 +83,18 @@ impl UserChip {
             parts,
         }
     }
-    pub fn input(&self) -> &Interface {
+    pub fn get_input(&self) -> &ChipIOSpec {
         &self.input
     }
-    pub fn output(&self) -> &Interface {
+    pub fn get_output(&self) -> &ChipIOSpec {
         &self.output
     }
-    pub fn parts(&self) -> &Parts {
+    pub fn get_parts(&self) -> &ChildrenSpec {
         &self.parts
     }
 }
 
-impl Chip for UserChip {
+impl Chip for UserChipSpec {
     fn get_name(&self) -> &str {
         self.name.as_str()
     }
@@ -120,37 +122,61 @@ impl PinlineIO {
     }
 }
 
-impl Pinline {
+impl PinlineSpec {
     pub fn new(name: &str, pin_count: usize) -> Self {
         Self {
             name: name.to_string(),
             pin_count,
         }
     }
-    pub fn name(&self) -> &str {
+    pub fn get_name(&self) -> &str {
         self.name.as_str()
     }
-    pub fn pin_count(&self) -> usize {
+    pub fn get_pin_count(&self) -> usize {
         self.pin_count
     }
 }
 
-impl Interface {
-    pub fn new(pinlines: Vec<Pinline>) -> Self {
+impl ChipIOSpec {
+    pub fn new(pinlines: Vec<PinlineSpec>) -> Self {
         Self { pinlines }
     }
-    pub fn pinlines(&self) -> &Vec<Pinline> {
+    pub fn get_pinlines(&self) -> &Vec<PinlineSpec> {
         &self.pinlines
     }
-    pub fn push(&mut self, pinline: Pinline) {
+    pub fn push(&mut self, pinline: PinlineSpec) {
         self.pinlines.push(pinline);
     }
-    pub fn get(&self, name: &str) -> Option<&Pinline> {
+    pub fn get_pinline(&self, name: &str) -> Option<&PinlineSpec> {
         self.pinlines.iter().find(|p| p.name == name)
     }
 }
 
-impl PinlineConnected {
+impl ChildrenSpec {
+    pub fn new(children: Vec<ChildSpec>) -> Self {
+        Self { children }
+    }
+}
+
+impl ChildSpec {
+    pub fn new(name: &str, connections: Vec<ChildConnectionSpec>) -> Self {
+        Self {
+            name: name.to_string(),
+            connections,
+        }
+    }
+}
+
+impl ChildConnectionSpec {
+    pub fn new(
+        own: PinlineConnectionSpec,
+        foreign: PinlineConnectionSpec,
+    ) -> Self {
+        Self { own, foreign }
+    }
+}
+
+impl PinlineConnectionSpec {
     pub fn new(name: &str, indices: Vec<u32>) -> Self {
         Self {
             name: name.to_string(),
@@ -159,61 +185,45 @@ impl PinlineConnected {
     }
 }
 
-impl Connection {
-    pub fn new(own: PinlineConnected, foreign: PinlineConnected) -> Self {
-        Self { own, foreign }
-    }
-}
-
-impl ChipConnected {
-    pub fn new(name: &str, connections: Vec<Connection>) -> Self {
-        Self {
-            name: name.to_string(),
-            connections,
-        }
-    }
-}
-
-impl Parts {
-    pub fn new(chips: Vec<ChipConnected>) -> Self {
-        Self { chips }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
     fn chip_new() {
-        let a_input_pinline = Pinline::new("a", 1);
-        let b_input_pinline = Pinline::new("b", 1);
+        let a_input_pinline = PinlineSpec::new("a", 1);
+        let b_input_pinline = PinlineSpec::new("b", 1);
 
-        let and_input = Interface::new(vec![a_input_pinline, b_input_pinline]);
+        let and_input = ChipIOSpec::new(vec![a_input_pinline, b_input_pinline]);
 
-        let out_output_pinline = Pinline::new("out", 1);
-        let and_output = Interface::new(vec![out_output_pinline]);
+        let out_output_pinline = PinlineSpec::new("out", 1);
+        let and_output = ChipIOSpec::new(vec![out_output_pinline]);
 
-        let a_connection = PinlineConnected::new("a", vec![0]);
-        let b_connection = PinlineConnected::new("b", vec![0]);
-        let out_connection = PinlineConnected::new("out", vec![0]);
+        let a_connection = PinlineConnectionSpec::new("a", vec![0]);
+        let b_connection = PinlineConnectionSpec::new("b", vec![0]);
+        let out_connection = PinlineConnectionSpec::new("out", vec![0]);
 
-        let a_to_a =
-            Connection::new(a_connection, PinlineConnected::new("a", vec![0]));
-
-        let b_to_b =
-            Connection::new(b_connection, PinlineConnected::new("b", vec![0]));
-
-        let out_to_out = Connection::new(
-            out_connection,
-            PinlineConnected::new("out", vec![0]),
+        let a_to_a = ChildConnectionSpec::new(
+            a_connection,
+            PinlineConnectionSpec::new("a", vec![0]),
         );
 
-        let and_parts = Parts::new(vec![ChipConnected::new(
+        let b_to_b = ChildConnectionSpec::new(
+            b_connection,
+            PinlineConnectionSpec::new("b", vec![0]),
+        );
+
+        let out_to_out = ChildConnectionSpec::new(
+            out_connection,
+            PinlineConnectionSpec::new("out", vec![0]),
+        );
+
+        let and_parts = ChildrenSpec::new(vec![ChildSpec::new(
             "Nand",
             vec![a_to_a, b_to_b, out_to_out],
         )]);
 
-        let and_chip = UserChip::new("And", and_input, and_output, and_parts);
+        let and_chip =
+            UserChipSpec::new("And", and_input, and_output, and_parts);
 
         println!("{:#?}", and_chip);
 
