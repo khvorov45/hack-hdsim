@@ -1,6 +1,6 @@
 /// User-defined chip
 #[derive(Debug)]
-pub struct Chip {
+pub struct UserChip {
     name: String,
     input: Interface,
     output: Interface,
@@ -55,7 +55,7 @@ pub enum Pin {
     Unset,
 }
 
-impl Chip {
+impl UserChip {
     pub fn new(
         name: &str,
         input: Interface,
@@ -177,7 +177,7 @@ mod tests {
             vec![a_to_a, b_to_b, out_to_out],
         )]);
 
-        let and_chip = Chip::new("And", and_input, and_output, and_parts);
+        let and_chip = UserChip::new("And", and_input, and_output, and_parts);
 
         println!("{:#?}", and_chip);
 
