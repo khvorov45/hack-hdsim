@@ -100,9 +100,13 @@ impl Chip for UserChipSpec {
     }
     fn process_input(&self, input: ChipIO) -> ChipIO {
         // Compare input to spec here presumably
-        // Then construct new input for the children
-        // Then call this same method on all the children
-        // Then collect all their output and assemble the output
+        for part in &self.parts.children {
+            // Find an available chip with this name
+            part.get_name();
+            // Call the `process_input` function on it with the appropriate
+            // arguments
+            // Take the input and create the appropriate set of pins out of it
+        }
         ChipIO::new(vec![PinlineIO::new("a", vec![true])])
     }
 }
@@ -173,6 +177,9 @@ impl ChildSpec {
             name: name.to_string(),
             connections,
         }
+    }
+    pub fn get_name(&self) -> &str {
+        self.name.as_str()
     }
 }
 
