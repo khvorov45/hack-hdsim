@@ -111,6 +111,9 @@ impl ChipIO {
     pub fn new(pinlines: Vec<PinlineIO>) -> Self {
         Self { pinlines }
     }
+    pub fn get_pinline(&self, name: &str) -> Option<&PinlineIO> {
+        self.pinlines.iter().find(|p| p.get_name() == name)
+    }
 }
 
 impl PinlineIO {
@@ -119,6 +122,12 @@ impl PinlineIO {
             name: name.to_string(),
             pins,
         }
+    }
+    pub fn get_name(&self) -> &str {
+        self.name.as_str()
+    }
+    pub fn get_pin(&self, index: usize) -> Pin {
+        self.pins[index]
     }
 }
 
@@ -182,6 +191,20 @@ impl PinlineConnectionSpec {
             name: name.to_string(),
             indices,
         }
+    }
+}
+
+pub struct Nand {}
+
+impl Chip for Nand {
+    fn get_name(&self) -> &str {
+        "Nand"
+    }
+    fn process_input(&self, input: ChipIO) -> ChipIO {
+        // Validate input I guess
+        let res = !(input.get_pinline("a").unwrap().get_pin(0)
+            && input.get_pinline("b").unwrap().get_pin(0));
+        ChipIO::new(vec![PinlineIO::new("out", vec![res])])
     }
 }
 
