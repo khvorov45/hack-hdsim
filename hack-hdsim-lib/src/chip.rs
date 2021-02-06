@@ -23,22 +23,9 @@ pub struct PinlineIO {
 #[derive(Debug)]
 pub struct UserChipSpec {
     name: String,
-    input: ChipIOSpec,
-    output: ChipIOSpec,
+    input: ChipIO,
+    output: ChipIO,
     parts: ChildrenSpec,
-}
-
-/// Input/output of a chip
-#[derive(Debug)]
-pub struct ChipIOSpec {
-    pinlines: Vec<PinlineSpec>,
-}
-
-/// A set of pins with a name
-#[derive(Debug)]
-pub struct PinlineSpec {
-    name: String,
-    pin_count: usize,
 }
 
 /// A set of chips connected to the pins of another chip
@@ -73,8 +60,8 @@ pub type Pin = bool;
 impl UserChipSpec {
     pub fn new(
         name: &str,
-        input: ChipIOSpec,
-        output: ChipIOSpec,
+        input: ChipIO,
+        output: ChipIO,
         parts: ChildrenSpec,
     ) -> Self {
         Self {
@@ -84,10 +71,10 @@ impl UserChipSpec {
             parts,
         }
     }
-    pub fn get_input(&self) -> &ChipIOSpec {
+    pub fn get_input(&self) -> &ChipIO {
         &self.input
     }
-    pub fn get_output(&self) -> &ChipIOSpec {
+    pub fn get_output(&self) -> &ChipIO {
         &self.output
     }
     pub fn get_parts(&self) -> &ChildrenSpec {
@@ -135,36 +122,6 @@ impl PinlineIO {
     }
     pub fn get_pin(&self, index: usize) -> Pin {
         self.pins[index]
-    }
-}
-
-impl PinlineSpec {
-    pub fn new(name: &str, pin_count: usize) -> Self {
-        Self {
-            name: name.to_string(),
-            pin_count,
-        }
-    }
-    pub fn get_name(&self) -> &str {
-        self.name.as_str()
-    }
-    pub fn get_pin_count(&self) -> usize {
-        self.pin_count
-    }
-}
-
-impl ChipIOSpec {
-    pub fn new(pinlines: Vec<PinlineSpec>) -> Self {
-        Self { pinlines }
-    }
-    pub fn get_pinlines(&self) -> &Vec<PinlineSpec> {
-        &self.pinlines
-    }
-    pub fn push(&mut self, pinline: PinlineSpec) {
-        self.pinlines.push(pinline);
-    }
-    pub fn get_pinline(&self, name: &str) -> Option<&PinlineSpec> {
-        self.pinlines.iter().find(|p| p.name == name)
     }
 }
 
@@ -249,13 +206,13 @@ mod tests {
     use super::*;
     #[test]
     fn chip_new() {
-        let a_input_pinline = PinlineSpec::new("a", 1);
-        let b_input_pinline = PinlineSpec::new("b", 1);
+        let a_input_pinline = PinlineIO::new("a", vec![true]);
+        let b_input_pinline = PinlineIO::new("b", vec![true]);
 
-        let and_input = ChipIOSpec::new(vec![a_input_pinline, b_input_pinline]);
+        let and_input = ChipIO::new(vec![a_input_pinline, b_input_pinline]);
 
-        let out_output_pinline = PinlineSpec::new("out", 1);
-        let and_output = ChipIOSpec::new(vec![out_output_pinline]);
+        let out_output_pinline = PinlineIO::new("out", 1);
+        let and_output = ChipIO::new(vec![out_output_pinline]);
 
         let a_connection = PinlineConnectionSpec::new("a", vec![0]);
         let b_connection = PinlineConnectionSpec::new("b", vec![0]);
