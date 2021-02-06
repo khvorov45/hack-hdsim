@@ -4,6 +4,8 @@ pub trait Chip {
     fn process_input(&self, input: ChipIO) -> ChipIO;
 }
 
+pub type ChipsAvailable = Vec<Box<dyn Chip>>;
+
 /// Input/Output for any chip
 #[derive(Debug)]
 pub struct ChipIO {
@@ -46,9 +48,8 @@ pub struct ChildrenSpec {
 }
 
 /// A chip connected to another chip
-#[derive(Debug)]
 pub struct ChildSpec {
-    name: String,
+    chip: Box<dyn Chip>,
     connections: Vec<ChildConnectionSpec>,
 }
 
@@ -172,14 +173,22 @@ impl ChildrenSpec {
 }
 
 impl ChildSpec {
-    pub fn new(name: &str, connections: Vec<ChildConnectionSpec>) -> Self {
-        Self {
-            name: name.to_string(),
-            connections,
-        }
+    pub fn new(
+        chip: Box<dyn Chip>,
+        connections: Vec<ChildConnectionSpec>,
+    ) -> Self {
+        Self { chip, connections }
     }
     pub fn get_name(&self) -> &str {
-        self.name.as_str()
+        self.chip.get_name()
+    }
+}
+
+impl std::fmt::Debug for ChildSpec {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("ChildSpec")
+            .field("name", &self.get_name())
+            .finish()
     }
 }
 
@@ -202,6 +211,18 @@ impl PinlineConnectionSpec {
 }
 
 pub struct Nand {}
+
+impl Nand {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Default for Nand {
+    fn default() -> Self {
+        Nand::new()
+    }
+}
 
 impl Chip for Nand {
     fn get_name(&self) -> &str {
@@ -248,7 +269,7 @@ mod tests {
         );
 
         let and_parts = ChildrenSpec::new(vec![ChildSpec::new(
-            "Nand",
+            Box::new(Nand::new()),
             vec![a_to_a, b_to_b, out_to_out],
         )]);
 
