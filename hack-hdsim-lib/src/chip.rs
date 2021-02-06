@@ -93,6 +93,9 @@ impl UserChipSpec {
     pub fn get_parts(&self) -> &ChildrenSpec {
         &self.parts
     }
+    pub fn get_child(&self, name: &str) -> Option<&ChildSpec> {
+        self.parts.get_child(name)
+    }
 }
 
 impl Chip for UserChipSpec {
@@ -102,11 +105,10 @@ impl Chip for UserChipSpec {
     fn process_input(&self, input: ChipIO) -> ChipIO {
         // Compare input to spec here presumably
         for part in &self.parts.children {
-            // Find an available chip with this name
-            part.get_name();
-            // Call the `process_input` function on it with the appropriate
-            // arguments
-            // Take the input and create the appropriate set of pins out of it
+            // Have to create the appropriate input per specification somehow
+            let out = part.get_chip(); // .process_input(input: ChipIO);
+
+            // Take the output and create the appropriate set of pins out of it
         }
         ChipIO::new(vec![PinlineIO::new("a", vec![true])])
     }
@@ -170,6 +172,9 @@ impl ChildrenSpec {
     pub fn new(children: Vec<ChildSpec>) -> Self {
         Self { children }
     }
+    pub fn get_child(&self, name: &str) -> Option<&ChildSpec> {
+        self.children.iter().find(|c| c.get_name() == name)
+    }
 }
 
 impl ChildSpec {
@@ -181,6 +186,9 @@ impl ChildSpec {
     }
     pub fn get_name(&self) -> &str {
         self.chip.get_name()
+    }
+    pub fn get_chip(&self) -> &dyn Chip {
+        self.chip.as_ref()
     }
 }
 
