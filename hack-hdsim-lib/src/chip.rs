@@ -211,7 +211,7 @@ mod tests {
 
         let and_input = ChipIO::new(vec![a_input_pinline, b_input_pinline]);
 
-        let out_output_pinline = PinlineIO::new("out", 1);
+        let out_output_pinline = PinlineIO::new("out", vec![true]);
         let and_output = ChipIO::new(vec![out_output_pinline]);
 
         let a_connection = PinlineConnectionSpec::new("a", vec![0]);
