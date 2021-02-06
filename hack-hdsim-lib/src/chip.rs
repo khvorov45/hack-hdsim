@@ -26,6 +26,7 @@ pub struct UserChipSpec {
     input: ChipIO,
     output: ChipIO,
     parts: ChildrenSpec,
+    internal: ChipIO,
 }
 
 /// A set of chips connected to the pins of another chip
@@ -64,24 +65,53 @@ impl UserChipSpec {
         output: ChipIO,
         parts: ChildrenSpec,
     ) -> Self {
+        // Gotta read through the children and figure out what the internal
+        // pins are
         Self {
             name: name.to_string(),
             input,
             output,
             parts,
+            internal: vec![],
         }
     }
     pub fn get_input(&self) -> &ChipIO {
         &self.input
     }
+    pub fn get_input_pinline(&self, name: &str) -> Option<&PinlineIO> {
+        self.input.get_pinline(name)
+    }
     pub fn get_output(&self) -> &ChipIO {
         &self.output
+    }
+    pub fn get_output_pinline(&self, name: &str) -> Option<&PinlineIO> {
+        self.output.get_pinline(name)
     }
     pub fn get_parts(&self) -> &ChildrenSpec {
         &self.parts
     }
     pub fn get_child(&self, name: &str) -> Option<&ChildSpec> {
         self.parts.get_child(name)
+    }
+    pub fn get_internal(&self) -> &ChipIO {
+        &self.internal
+    }
+    pub fn get_internal_pinline(&self, name: &str) -> Option<&PinlineIO> {
+        self.internal.get_pinline(name)
+    }
+    /// All pinline names are unique, this will search through input, internal
+    /// and output in that order
+    pub fn get_pinline(&self, name: &str) -> Option<&PinlineIO> {
+        match self.get_input_pinline(name) {
+            Some(o) => Some(o),
+            None => match self.get_internal_pinline(name) {
+                Some(o) => Some(o),
+                None => match self.get_output_pinline(name) {
+                    Some(o) => Some(o),
+                    None => None,
+                },
+            },
+        }
     }
 }
 
