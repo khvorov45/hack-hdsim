@@ -78,14 +78,32 @@ impl UserChipSpec {
         output: ChipIOSpec,
         parts: ChildrenSpec,
     ) -> Self {
-        // Gotta read through the children and figure out what the internal
-        // pins are
+        // Figure out what the internal pins are
+        let mut internal = Vec::new();
+        let mut exposed_names = input.get_names();
+        exposed_names.append(&mut output.get_names());
+        for part in parts.get_children() {
+            for connection in part.get_connections() {
+                let foreign = connection.get_foreign();
+                if exposed_names
+                    .iter()
+                    // I don't know how we got to a triple reference here
+                    .find(|n| n == &&foreign.get_name())
+                    .is_none()
+                {
+                    internal.push(PinlineIOSpec::new(
+                        foreign.get_name(),
+                        foreign.get_pin_count(),
+                    ));
+                }
+            }
+        }
         Self {
             name: name.to_string(),
             input,
             output,
             parts,
-            internal: ChipIOSpec::new(vec![]),
+            internal: ChipIOSpec::new(internal),
         }
     }
     pub fn get_input(&self) -> &ChipIOSpec {
@@ -196,11 +214,17 @@ impl ChipIOSpec {
     pub fn get_pinline(&self, name: &str) -> Option<&PinlineIOSpec> {
         self.pinlines.iter().find(|p| p.name == name)
     }
+    pub fn get_names(&self) -> Vec<&str> {
+        self.pinlines.iter().map(|p| p.get_name()).collect()
+    }
 }
 
 impl ChildrenSpec {
     pub fn new(children: Vec<ChildSpec>) -> Self {
         Self { children }
+    }
+    pub fn get_children(&self) -> &Vec<ChildSpec> {
+        &self.children
     }
     pub fn get_child(&self, name: &str) -> Option<&ChildSpec> {
         self.children.iter().find(|c| c.get_name() == name)
@@ -220,6 +244,9 @@ impl ChildSpec {
     pub fn get_chip(&self) -> &dyn Chip {
         self.chip.as_ref()
     }
+    pub fn get_connections(&self) -> &Vec<ChildConnectionSpec> {
+        &self.connections
+    }
 }
 
 impl std::fmt::Debug for ChildSpec {
@@ -237,6 +264,9 @@ impl ChildConnectionSpec {
     ) -> Self {
         Self { own, foreign }
     }
+    pub fn get_foreign(&self) -> &PinlineConnectionSpec {
+        &self.foreign
+    }
 }
 
 impl PinlineConnectionSpec {
@@ -245,6 +275,12 @@ impl PinlineConnectionSpec {
             name: name.to_string(),
             indices,
         }
+    }
+    pub fn get_name(&self) -> &str {
+        self.name.as_str()
+    }
+    pub fn get_pin_count(&self) -> usize {
+        self.indices.len()
     }
 }
 
