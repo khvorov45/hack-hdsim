@@ -62,7 +62,7 @@ pub struct ChildConnectionSpec {
 }
 
 /// Name and pin indices of a pinline that connect somewhere
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PinlineConnectionSpec {
     name: String,
     indices: Vec<u32>,
@@ -79,7 +79,7 @@ impl UserChipSpec {
         parts: ChildrenSpec,
     ) -> Self {
         // Figure out what the internal pins are
-        let mut internal = Vec::new();
+        let mut internal = Vec::<PinlineIOSpec>::new();
         let mut exposed_names = input.get_names();
         exposed_names.append(&mut output.get_names());
         for part in parts.get_children() {
@@ -90,6 +90,10 @@ impl UserChipSpec {
                     // I don't know how we got to a triple reference here
                     .find(|n| n == &&foreign.get_name())
                     .is_none()
+                    && internal
+                        .iter()
+                        .find(|p| p.get_name() == foreign.get_name())
+                        .is_none()
                 {
                     internal.push(PinlineIOSpec::new(
                         foreign.get_name(),
@@ -253,6 +257,7 @@ impl std::fmt::Debug for ChildSpec {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("ChildSpec")
             .field("name", &self.get_name())
+            .field("connections", self.get_connections())
             .finish()
     }
 }
@@ -328,13 +333,33 @@ mod tests {
         let out_connection = PinlineConnectionSpec::new("out", vec![0]);
 
         let a_to_a = ChildConnectionSpec::new(
-            a_connection,
+            a_connection.clone(),
             PinlineConnectionSpec::new("a", vec![0]),
         );
 
         let b_to_b = ChildConnectionSpec::new(
-            b_connection,
+            b_connection.clone(),
             PinlineConnectionSpec::new("b", vec![0]),
+        );
+
+        let out_to_c = ChildConnectionSpec::new(
+            out_connection.clone(),
+            PinlineConnectionSpec::new("c", vec![0]),
+        );
+
+        let first_child = ChildSpec::new(
+            Box::new(Nand::new()),
+            vec![a_to_a, b_to_b, out_to_c],
+        );
+
+        let a_to_c = ChildConnectionSpec::new(
+            a_connection,
+            PinlineConnectionSpec::new("c", vec![0]),
+        );
+
+        let b_to_c = ChildConnectionSpec::new(
+            b_connection,
+            PinlineConnectionSpec::new("c", vec![0]),
         );
 
         let out_to_out = ChildConnectionSpec::new(
@@ -342,10 +367,12 @@ mod tests {
             PinlineConnectionSpec::new("out", vec![0]),
         );
 
-        let and_parts = ChildrenSpec::new(vec![ChildSpec::new(
+        let second_child = ChildSpec::new(
             Box::new(Nand::new()),
-            vec![a_to_a, b_to_b, out_to_out],
-        )]);
+            vec![a_to_c, b_to_c, out_to_out],
+        );
+
+        let and_parts = ChildrenSpec::new(vec![first_child, second_child]);
 
         let and_chip =
             UserChipSpec::new("And", and_input, and_output, and_parts);
