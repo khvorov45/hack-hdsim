@@ -9,63 +9,63 @@ pub type ChipsAvailable = Vec<Box<dyn Chip>>;
 /// Input/Output for any chip
 #[derive(Debug)]
 pub struct ChipIO {
-    pinlines: Vec<PinlineIO>,
+    pub pinlines: Vec<PinlineIO>,
 }
 
 /// One pinline's pins
 #[derive(Debug)]
 pub struct PinlineIO {
-    name: String,
-    pins: Vec<Pin>,
+    pub name: String,
+    pub pins: Vec<Pin>,
 }
 
 /// User-defined chip
 #[derive(Debug)]
 pub struct UserChipSpec {
-    name: String,
-    input: ChipIOSpec,
-    output: ChipIOSpec,
-    parts: ChildrenSpec,
-    internal: ChipIOSpec,
+    pub name: String,
+    pub input: ChipIOSpec,
+    pub output: ChipIOSpec,
+    pub parts: ChildrenSpec,
+    pub internal: ChipIOSpec,
 }
 
 /// Input/output of a chip
 #[derive(Debug)]
 pub struct ChipIOSpec {
-    pinlines: Vec<PinlineIOSpec>,
+    pub pinlines: Vec<PinlineIOSpec>,
 }
 
 /// A set of pins with a name
 #[derive(Debug)]
 pub struct PinlineIOSpec {
-    name: String,
-    pin_count: usize,
+    pub name: String,
+    pub pin_count: usize,
 }
 
 /// A set of chips connected to the pins of another chip
 #[derive(Debug)]
 pub struct ChildrenSpec {
-    children: Vec<ChildSpec>,
+    pub children: Vec<ChildSpec>,
 }
 
 /// A chip connected to another chip
 pub struct ChildSpec {
-    chip: Box<dyn Chip>,
-    connections: Vec<ChildConnectionSpec>,
+    pub chip: Box<dyn Chip>,
+    pub connections: Vec<ChildConnectionSpec>,
 }
 
 /// A pinline of one chip going to a pinline of another
 #[derive(Debug)]
 pub struct ChildConnectionSpec {
-    own: PinlineConnectionSpec,
-    foreign: PinlineConnectionSpec,
+    pub own: PinlineConnectionSpec,
+    pub foreign: PinlineConnectionSpec,
 }
 
 /// Name and pin indices of a pinline that connect somewhere
 #[derive(Debug, Clone)]
 pub struct PinlineConnectionSpec {
-    name: String,
-    indices: Vec<u32>,
+    pub name: String,
+    pub indices: Vec<u32>,
 }
 
 /// The pin
@@ -82,22 +82,21 @@ impl UserChipSpec {
         let mut internal = Vec::<PinlineIOSpec>::new();
         let mut exposed_names = input.get_names();
         exposed_names.append(&mut output.get_names());
-        for part in parts.get_children() {
-            for connection in part.get_connections() {
-                let foreign = connection.get_foreign();
+        for part in &parts.children {
+            for connection in &part.connections {
                 if exposed_names
                     .iter()
                     // I don't know how we got to a triple reference here
-                    .find(|n| n == &&foreign.get_name())
+                    .find(|n| n == &&connection.foreign.get_name())
                     .is_none()
                     && internal
                         .iter()
-                        .find(|p| p.get_name() == foreign.get_name())
+                        .find(|p| p.get_name() == connection.foreign.get_name())
                         .is_none()
                 {
                     internal.push(PinlineIOSpec::new(
-                        foreign.get_name(),
-                        foreign.get_pin_count(),
+                        connection.foreign.get_name(),
+                        connection.foreign.get_pin_count(),
                     ));
                 }
             }
@@ -110,38 +109,14 @@ impl UserChipSpec {
             internal: ChipIOSpec::new(internal),
         }
     }
-    pub fn get_input(&self) -> &ChipIOSpec {
-        &self.input
-    }
-    pub fn get_input_pinline(&self, name: &str) -> Option<&PinlineIOSpec> {
-        self.input.get_pinline(name)
-    }
-    pub fn get_output(&self) -> &ChipIOSpec {
-        &self.output
-    }
-    pub fn get_output_pinline(&self, name: &str) -> Option<&PinlineIOSpec> {
-        self.output.get_pinline(name)
-    }
-    pub fn get_parts(&self) -> &ChildrenSpec {
-        &self.parts
-    }
-    pub fn get_child(&self, name: &str) -> Option<&ChildSpec> {
-        self.parts.get_child(name)
-    }
-    pub fn get_internal(&self) -> &ChipIOSpec {
-        &self.internal
-    }
-    pub fn get_internal_pinline(&self, name: &str) -> Option<&PinlineIOSpec> {
-        self.internal.get_pinline(name)
-    }
     /// All pinline names are unique, this will search through input, internal
     /// and output in that order
     pub fn get_pinline(&self, name: &str) -> Option<&PinlineIOSpec> {
-        match self.get_input_pinline(name) {
+        match self.input.get_pinline(name) {
             Some(o) => Some(o),
-            None => match self.get_internal_pinline(name) {
+            None => match self.internal.get_pinline(name) {
                 Some(o) => Some(o),
-                None => match self.get_output_pinline(name) {
+                None => match self.output.get_pinline(name) {
                     Some(o) => Some(o),
                     None => None,
                 },
@@ -186,6 +161,7 @@ impl PinlineIO {
         self.name.as_str()
     }
     pub fn get_pin(&self, index: usize) -> Pin {
+        // Bounds check here?
         self.pins[index]
     }
 }
@@ -200,17 +176,11 @@ impl PinlineIOSpec {
     pub fn get_name(&self) -> &str {
         self.name.as_str()
     }
-    pub fn get_pin_count(&self) -> usize {
-        self.pin_count
-    }
 }
 
 impl ChipIOSpec {
     pub fn new(pinlines: Vec<PinlineIOSpec>) -> Self {
         Self { pinlines }
-    }
-    pub fn get_pinlines(&self) -> &Vec<PinlineIOSpec> {
-        &self.pinlines
     }
     pub fn push(&mut self, pinline: PinlineIOSpec) {
         self.pinlines.push(pinline);
@@ -226,9 +196,6 @@ impl ChipIOSpec {
 impl ChildrenSpec {
     pub fn new(children: Vec<ChildSpec>) -> Self {
         Self { children }
-    }
-    pub fn get_children(&self) -> &Vec<ChildSpec> {
-        &self.children
     }
     pub fn get_child(&self, name: &str) -> Option<&ChildSpec> {
         self.children.iter().find(|c| c.get_name() == name)
@@ -248,16 +215,13 @@ impl ChildSpec {
     pub fn get_chip(&self) -> &dyn Chip {
         self.chip.as_ref()
     }
-    pub fn get_connections(&self) -> &Vec<ChildConnectionSpec> {
-        &self.connections
-    }
 }
 
 impl std::fmt::Debug for ChildSpec {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("ChildSpec")
             .field("name", &self.get_name())
-            .field("connections", self.get_connections())
+            .field("connections", &self.connections)
             .finish()
     }
 }
@@ -268,9 +232,6 @@ impl ChildConnectionSpec {
         foreign: PinlineConnectionSpec,
     ) -> Self {
         Self { own, foreign }
-    }
-    pub fn get_foreign(&self) -> &PinlineConnectionSpec {
-        &self.foreign
     }
 }
 
