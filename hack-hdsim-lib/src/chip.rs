@@ -126,7 +126,21 @@ impl Chip for UserChipSpec {
     fn process_input(&self, input: ChipIO) -> ChipIO {
         // Compare input to spec here presumably
         for part in &self.parts.children {
-            // Have to create the appropriate input per specification somehow
+            // Get the input spec of this part
+            // Go through each pinline and see if we've got its foreign name
+            // in our input or internal pins
+            // (output isn't plugged into anything)
+            // Children can go in any order though, so we have to do multiple
+            // rounds of this I guess until all the children have produced
+            // output?
+            // Also chips can be connected in a circle
+            // (in of a to out of b and vv),
+            // I guess this is solved by initing everything to 0?
+            // Or do we not even need multiple rounds and just do one
+            // (with unknown set to 0 initially)
+            // and it will resolve itself somehow?
+            // Need to play around with fake chips to see how it's supposed to
+            // work
             let out = part.chip.as_ref(); // .process_input(input: ChipIO);
 
             // Take the output and create the appropriate set of pins out of it
