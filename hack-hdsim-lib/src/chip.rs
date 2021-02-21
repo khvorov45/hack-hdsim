@@ -79,23 +79,17 @@ impl UserChipSpec {
         parts: ChildrenSpec,
     ) -> Self {
         // Figure out what the internal pins are
-        let mut internal = Vec::<PinlineIOSpec>::new();
-        let mut exposed_names = input.get_names();
-        exposed_names.append(&mut output.get_names());
+        let mut internal = ChipIOSpec::default();
         for part in &parts.children {
             for connection in &part.connections {
-                if exposed_names
-                    .iter()
-                    // I don't know how we got to a triple reference here
-                    .find(|n| n == &&connection.foreign.name)
-                    .is_none()
-                    && internal
-                        .iter()
-                        .find(|p| p.name == connection.foreign.name)
-                        .is_none()
+                // Any name not already present somewhere should be added
+                let name = connection.foreign.name.as_str();
+                if input.get_pinline(name).is_none()
+                    && output.get_pinline(name).is_none()
+                    && internal.get_pinline(name).is_none()
                 {
                     internal.push(PinlineIOSpec::new(
-                        connection.foreign.name.as_str(),
+                        name,
                         connection.foreign.get_pin_count(),
                     ));
                 }
@@ -106,7 +100,7 @@ impl UserChipSpec {
             input,
             output,
             parts,
-            internal: ChipIOSpec::new(internal),
+            internal,
         }
     }
     /// All pinline names are unique, this will search through input, internal
@@ -184,6 +178,12 @@ impl ChipIOSpec {
     }
     pub fn get_names(&self) -> Vec<&str> {
         self.pinlines.iter().map(|p| p.name.as_str()).collect()
+    }
+}
+
+impl Default for ChipIOSpec {
+    fn default() -> Self {
+        Self { pinlines: vec![] }
     }
 }
 
