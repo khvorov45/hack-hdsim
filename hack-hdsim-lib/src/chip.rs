@@ -87,15 +87,15 @@ impl UserChipSpec {
                 if exposed_names
                     .iter()
                     // I don't know how we got to a triple reference here
-                    .find(|n| n == &&connection.foreign.get_name())
+                    .find(|n| n == &&connection.foreign.name)
                     .is_none()
                     && internal
                         .iter()
-                        .find(|p| p.get_name() == connection.foreign.get_name())
+                        .find(|p| p.name == connection.foreign.name)
                         .is_none()
                 {
                     internal.push(PinlineIOSpec::new(
-                        connection.foreign.get_name(),
+                        connection.foreign.name.as_str(),
                         connection.foreign.get_pin_count(),
                     ));
                 }
@@ -146,7 +146,7 @@ impl ChipIO {
         Self { pinlines }
     }
     pub fn get_pinline(&self, name: &str) -> Option<&PinlineIO> {
-        self.pinlines.iter().find(|p| p.get_name() == name)
+        self.pinlines.iter().find(|p| p.name.as_str() == name)
     }
 }
 
@@ -156,9 +156,6 @@ impl PinlineIO {
             name: name.to_string(),
             pins,
         }
-    }
-    pub fn get_name(&self) -> &str {
-        self.name.as_str()
     }
     pub fn get_pin(&self, index: usize) -> Pin {
         // Bounds check here?
@@ -173,9 +170,6 @@ impl PinlineIOSpec {
             pin_count,
         }
     }
-    pub fn get_name(&self) -> &str {
-        self.name.as_str()
-    }
 }
 
 impl ChipIOSpec {
@@ -189,7 +183,7 @@ impl ChipIOSpec {
         self.pinlines.iter().find(|p| p.name == name)
     }
     pub fn get_names(&self) -> Vec<&str> {
-        self.pinlines.iter().map(|p| p.get_name()).collect()
+        self.pinlines.iter().map(|p| p.name.as_str()).collect()
     }
 }
 
@@ -198,7 +192,7 @@ impl ChildrenSpec {
         Self { children }
     }
     pub fn get_child(&self, name: &str) -> Option<&ChildSpec> {
-        self.children.iter().find(|c| c.get_name() == name)
+        self.children.iter().find(|c| c.chip.get_name() == name)
     }
 }
 
@@ -209,9 +203,6 @@ impl ChildSpec {
     ) -> Self {
         Self { chip, connections }
     }
-    pub fn get_name(&self) -> &str {
-        self.chip.get_name()
-    }
     pub fn get_chip(&self) -> &dyn Chip {
         self.chip.as_ref()
     }
@@ -220,7 +211,7 @@ impl ChildSpec {
 impl std::fmt::Debug for ChildSpec {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("ChildSpec")
-            .field("name", &self.get_name())
+            .field("name", &self.chip.get_name())
             .field("connections", &self.connections)
             .finish()
     }
@@ -241,9 +232,6 @@ impl PinlineConnectionSpec {
             name: name.to_string(),
             indices,
         }
-    }
-    pub fn get_name(&self) -> &str {
-        self.name.as_str()
     }
     pub fn get_pin_count(&self) -> usize {
         self.indices.len()
