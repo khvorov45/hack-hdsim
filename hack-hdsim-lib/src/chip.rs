@@ -125,25 +125,23 @@ impl Chip for UserChipSpec {
     }
     fn process_input(&self, input: ChipIO) -> ChipIO {
         // Compare input to spec here presumably
+
+        // Let's not handle clocked chips for now.
+        // Let's force the order of chips to make sense for now
+        // (i.e. children have to be declared in the order in which it's
+        // possible to assign their input, no internal pins that are set later)
         for part in &self.parts.children {
-            // Get the input spec of this part
             // Go through each pinline and see if we've got its foreign name
             // in our input or internal pins
-            // (output isn't plugged into anything)
-            // Children can go in any order though, so we have to do multiple
-            // rounds of this I guess until all the children have produced
-            // output?
-            // Also chips can be connected in a circle
-            // (in of a to out of b and vv),
-            // I guess this is solved by initing everything to 0?
-            // Or do we not even need multiple rounds and just do one
-            // (with unknown set to 0 initially)
-            // and it will resolve itself somehow?
-            // Need to play around with fake chips to see how it's supposed to
-            // work
+            // (output isn't plugged into anything).
+            // Then get the correspoding value in input.
+            // We should have the full input by the end of that.
+
             let out = part.chip.as_ref(); // .process_input(input: ChipIO);
 
-            // Take the output and create the appropriate set of pins out of it
+            // Take the output and create the appropriate set of pins out of it.
+            // That is, go through the pins and see if we  have their foreign
+            // name somewhere, if so - set the appropriate value.
         }
         ChipIO::new(vec![PinlineIO::new("a", vec![true])])
     }
