@@ -127,7 +127,7 @@ impl Chip for UserChipSpec {
         // Compare input to spec here presumably
         for part in &self.parts.children {
             // Have to create the appropriate input per specification somehow
-            let out = part.get_chip(); // .process_input(input: ChipIO);
+            let out = part.chip.as_ref(); // .process_input(input: ChipIO);
 
             // Take the output and create the appropriate set of pins out of it
         }
@@ -202,9 +202,6 @@ impl ChildSpec {
         connections: Vec<ChildConnectionSpec>,
     ) -> Self {
         Self { chip, connections }
-    }
-    pub fn get_chip(&self) -> &dyn Chip {
-        self.chip.as_ref()
     }
 }
 
