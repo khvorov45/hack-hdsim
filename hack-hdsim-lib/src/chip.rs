@@ -1,7 +1,18 @@
-/// Applies to both user and built-in chips
+/// Applies to both user and built-in chips.
+/// The tick-tock steps imply that all chips are clocked because that's easier
+/// to think about and that's what we want ultimately anyway.
+/// ACTUALLY we need both the clocked and unclocked chips. Unclocked chips
+/// just evaluate their input (faster than the clock half-cycle presumably).
+/// Clocked chips read their input during the tick and evaluate output during
+/// the tock.
+/// If everything is clocked than things will be much slower than they could
+/// be because we'll be waiting for the clock when we don't need to I think.
 pub trait Chip {
     fn get_name(&self) -> &str;
-    fn process_input(&self, input: ChipIO) -> ChipIO;
+    /// Tick
+    fn read_input(&mut self, input: ChipIO);
+    /// Tock
+    fn produce_output(&self) -> ChipIO;
 }
 
 pub type ChipsAvailable = Vec<Box<dyn Chip>>;
@@ -123,13 +134,14 @@ impl Chip for UserChipSpec {
     fn get_name(&self) -> &str {
         self.name.as_str()
     }
-    fn process_input(&self, input: ChipIO) -> ChipIO {
+    fn read_input(&mut self, input: ChipIO) {
         // Compare input to spec here presumably
 
-        // Let's not handle clocked chips for now.
-        // Let's force the order of chips to make sense for now
-        // (i.e. children have to be declared in the order in which it's
-        // possible to assign their input, no internal pins that are set later)
+        self.input = input;
+
+        // Set input of all the children
+    }
+    fn produce_output(&self) -> ChipIO {
         for part in &self.parts.children {
             // Go through each pinline and see if we've got its foreign name
             // in our input or internal pins
@@ -143,6 +155,7 @@ impl Chip for UserChipSpec {
             // That is, go through the pins and see if we  have their foreign
             // name somewhere, if so - set the appropriate value.
         }
+        // Placeholder
         ChipIO::new(vec![PinlineIO::new("a", vec![true])])
     }
 }
@@ -247,11 +260,18 @@ impl PinlineConnectionSpec {
     }
 }
 
-pub struct Nand {}
+pub struct Nand {
+    pub input: ChipIO,
+}
 
 impl Nand {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            input: ChipIO::new(vec![
+                PinlineIO::new("a", vec![false]),
+                PinlineIO::new("b", vec![false]),
+            ]),
+        }
     }
 }
 
@@ -265,10 +285,13 @@ impl Chip for Nand {
     fn get_name(&self) -> &str {
         "Nand"
     }
-    fn process_input(&self, input: ChipIO) -> ChipIO {
+    fn read_input(&mut self, input: ChipIO) {
         // Validate input I guess
-        let res = !(input.get_pinline("a").unwrap().get_pin(0)
-            && input.get_pinline("b").unwrap().get_pin(0));
+        self.input = input;
+    }
+    fn produce_output(&self) -> ChipIO {
+        let res = !(self.input.get_pinline("a").unwrap().get_pin(0)
+            && self.input.get_pinline("b").unwrap().get_pin(0));
         ChipIO::new(vec![PinlineIO::new("out", vec![res])])
     }
 }
