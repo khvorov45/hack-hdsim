@@ -15,6 +15,7 @@
         "Alphanum",
         "Nand",
         "Tock",
+        "clippy",
         "unclocked",
         "vals"
     ]
