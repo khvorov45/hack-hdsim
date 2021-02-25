@@ -10,7 +10,7 @@ pub struct Chip {
 
 pub type Pinlines = Vec<Pinline>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Pinline {
     pub name: String,
     pub pins: Vec<Pin>,
@@ -116,20 +116,6 @@ impl Chip {
             clocked,
         }
     }
-    /// All pinline names are unique, this will search through input, internal
-    /// and output in that order
-    pub fn get_pinline(&self, name: &str) -> Option<&Pinline> {
-        match self.input.get_pinline(name) {
-            Some(o) => Some(o),
-            None => match self.internal.get_pinline(name) {
-                Some(o) => Some(o),
-                None => match self.output.get_pinline(name) {
-                    Some(o) => Some(o),
-                    None => None,
-                },
-            },
-        }
-    }
     /// Tick for clocked chips
     pub fn read_input(&mut self, input: Pinlines) {
         if !self.clocked {
@@ -167,9 +153,86 @@ impl Chip {
         vec![Pinline::new("a", 1)]
     }
     /// For unclocked chips
-    pub fn evaluate(&self) -> Pinlines {
+    pub fn evaluate(&mut self, input: Pinlines) -> Pinlines {
         if self.clocked {
             panic!("evaluate is only for unclocked chips")
+        }
+
+        // Verify input?
+
+        // Set input
+        self.input = input;
+
+        // If we force children to be in the right order then we should just
+        // be able to go through them in order and have all the internal pins
+        // set to the appropriate value before we get there
+
+        // Input is set at this point, need to verify that internal pins and
+        // output pins are set before actually using them
+        let mut pins_set: Vec<String> =
+            Vec::with_capacity(self.internal.len() + self.output.len());
+        for part in &mut self.parts {
+            // Construct input
+            let mut part_input = Pinlines::with_capacity(part.chip.input.len());
+            for connection in part.get_input_connections() {
+                let name_to_find = connection.foreign.name.as_str();
+                let mut search_in =
+                    self.input.iter().chain(self.internal.iter());
+                let pinline = match search_in.find(|p| p.name == name_to_find) {
+                    Some(p) => {
+                        if pins_set
+                                .iter()
+                                .find(|p| p == &name_to_find)
+                                .is_none()
+                            {
+                                panic!(
+                                    "want to use pin `{}` in chip `{}` for input into chip `{}` but nothing set it (children are in the wrong order)", name_to_find, self.name, part.chip.name
+                                );
+                            }
+                        p
+                    },
+                    None => panic!(
+                        "want to use pin `{}` in chip `{}` for input into chip `{}` but we don't have it in input nor internal pins", name_to_find, self.name, part.chip.name
+                    )
+                };
+                part_input.push(pinline.clone());
+            }
+
+            // Then generate output
+            let out = part.chip.evaluate(part_input);
+
+            // Set own output and internal pins accordingly
+            for connection in part.get_output_connections() {
+                let name_to_find = connection.foreign.name.as_str();
+                let mut search_in =
+                    self.internal.iter().chain(self.output.iter());
+                match search_in.position(|p| p.name == name_to_find) {
+                    Some(i) => {
+                        if pins_set
+                                .iter()
+                                .any(|p| p == name_to_find)
+                            {
+                                panic!(
+                                    "want to set pin `{}` in chip `{}` from output of chip `{}` but it's already set", name_to_find, self.name, part.chip.name
+                                );
+                            }
+                        let to_set = out
+                            .iter()
+                            .find(|o| o.name == name_to_find)
+                            .unwrap()
+                            .clone();
+                        pins_set.push(to_set.name.clone());
+                        if i < self.internal.len() {
+                            self.internal[i] = to_set;
+                        } else {
+                            self.output[i] = to_set;
+                        }
+                    },
+                    None => panic!(
+                        "want to set pin `{}` in chip `{}` from output of chip `{}` but we don't have it in output nor internal pins", name_to_find, self.name, part.chip.name
+                    )
+                };
+            }
         }
         // Placeholder
         vec![Pinline::new("a", 1)]
@@ -201,7 +264,24 @@ impl Pinline {
 
 impl Child {
     pub fn new(chip: Chip, connections: Vec<ChildConnection>) -> Self {
+        // Verify that connection names make sense?
         Self { chip, connections }
+    }
+    pub fn get_input_connections(&self) -> Vec<&ChildConnection> {
+        self.connections
+            .iter()
+            .filter(|c| {
+                self.chip.input.get_pinline(c.own.name.as_str()).is_some()
+            })
+            .collect()
+    }
+    pub fn get_output_connections(&self) -> Vec<&ChildConnection> {
+        self.connections
+            .iter()
+            .filter(|c| {
+                self.chip.output.get_pinline(c.own.name.as_str()).is_some()
+            })
+            .collect()
     }
 }
 
