@@ -130,6 +130,7 @@ impl Chip {
             },
         }
     }
+    /// Tick for clocked chips
     pub fn read_input(&mut self, input: Pinlines) {
         if !self.clocked {
             panic!("read_input is only for clocked chips")
@@ -143,6 +144,7 @@ impl Chip {
         // We also need to go through the children and actually run those
         // that are unclocked
     }
+    /// Tock for clocked chips
     pub fn produce_output(&self) -> Pinlines {
         if !self.clocked {
             panic!("produce_output is only for clocked chips")
@@ -164,6 +166,7 @@ impl Chip {
         // Placeholder
         vec![Pinline::new("a", 1)]
     }
+    /// For unclocked chips
     pub fn evaluate(&self) -> Pinlines {
         if self.clocked {
             panic!("evaluate is only for unclocked chips")
