@@ -369,4 +369,17 @@ mod tests {
         res_actual = chip.evaluate();
         assert_eq!(res_actual, &res_expected);
     }
+    #[test]
+    fn not() {
+        let mut chip = Chip::new_builtin(BuiltinChips::Not);
+        let mut res_expected = vec![Pinline::new("out", vec![true])];
+        let mut res_actual = chip.evaluate();
+        assert_eq!(res_actual, &res_expected);
+
+        res_expected[0].pins[0] = false;
+
+        chip.set_input(vec![Pinline::new("in", vec![true])]);
+        res_actual = chip.evaluate();
+        assert_eq!(res_actual, &res_expected);
+    }
 }
