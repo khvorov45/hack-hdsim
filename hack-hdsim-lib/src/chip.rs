@@ -250,7 +250,7 @@ impl Chip {
         use BuiltinChips::*;
         match self.builtin_id.as_ref().unwrap() {
             Nand => {
-                let res = !(self.input[0].pins[0] && self.input[1].pins[0]);
+                let res = !self.input[0].pins[0] && !self.input[1].pins[0];
                 self.output[0].pins = vec![res];
             }
             Not => {
@@ -351,8 +351,22 @@ mod tests {
     #[test]
     fn nand() {
         let mut chip = Chip::new_builtin(BuiltinChips::Nand);
-        println!("{:#?}", chip);
-        let default_result = chip.evaluate();
-        assert_eq!(default_result, &vec![Pinline::new("out", vec![true])]);
+        let mut res_expected = vec![Pinline::new("out", vec![true])];
+        let mut res_actual = chip.evaluate();
+        assert_eq!(res_actual, &res_expected);
+
+        res_expected[0].pins[0] = false;
+
+        chip.set_input(vec![Pinline::new("a", vec![true])]);
+        res_actual = chip.evaluate();
+        assert_eq!(res_actual, &res_expected);
+
+        chip.set_input(vec![Pinline::new("b", vec![true])]);
+        res_actual = chip.evaluate();
+        assert_eq!(res_actual, &res_expected);
+
+        chip.set_input(vec![Pinline::new("a", vec![false])]);
+        res_actual = chip.evaluate();
+        assert_eq!(res_actual, &res_expected);
     }
 }
