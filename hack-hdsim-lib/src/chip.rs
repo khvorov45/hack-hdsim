@@ -34,7 +34,7 @@ pub struct ChildConnection {
 #[derive(Debug, Clone)]
 pub struct PinlineConnection {
     pub name: String,
-    pub indices: Vec<u32>,
+    pub indices: Vec<usize>,
 }
 
 #[derive(Debug)]
@@ -131,7 +131,7 @@ impl Chip {
     /// Tick for clocked chips
     pub fn read_input(&mut self, input: Pinlines) {
         if !self.clocked {
-            panic!("read_input is only for clocked chips")
+            panic!("read_input is only for clocked chips");
         }
         // Compare input to spec here presumably
 
@@ -145,9 +145,9 @@ impl Chip {
     /// Tock for clocked chips
     pub fn produce_output(&self) -> &Pinlines {
         if !self.clocked {
-            panic!("produce_output is only for clocked chips")
+            panic!("produce_output is only for clocked chips");
         }
-        for part in &self.parts {
+        /*for part in &self.parts {
             // Go through each pinline and see if we've got its foreign name
             // in our input or internal pins
             // (output isn't plugged into anything).
@@ -159,14 +159,14 @@ impl Chip {
             // Take the output and create the appropriate set of pins out of it.
             // That is, go through the pins and see if we  have their foreign
             // name somewhere, if so - set the appropriate value.
-        }
+        }*/
         // We probably need to rerun all the unclocked chips here as well
         &self.output
     }
     /// For unclocked chips
     pub fn evaluate(&mut self) -> &Pinlines {
         if self.clocked {
-            panic!("evaluate is only for unclocked chips")
+            panic!("evaluate is only for unclocked chips");
         }
         if self.is_builtin() {
             return self.evaluate_builtin();
@@ -178,8 +178,8 @@ impl Chip {
 
         // Input is set at this point, need to verify that internal pins and
         // output pins are set before actually using them
-        let mut pins_set: Vec<String> =
-            Vec::with_capacity(self.internal.len() + self.output.len());
+        // But not doing that right now, just trust child order
+
         for part in &mut self.parts {
             // Construct input
             let mut part_input = Pinlines::with_capacity(part.chip.input.len());
@@ -187,24 +187,11 @@ impl Chip {
                 let name_to_find = connection.foreign.name.as_str();
                 let mut search_in =
                     self.input.iter().chain(self.internal.iter());
-                let pinline = match search_in.find(|p| p.name == name_to_find) {
-                    Some(p) => {
-                        if pins_set
-                                .iter()
-                                .find(|p| p == &name_to_find)
-                                .is_none()
-                            {
-                                panic!(
-                                    "want to use pin `{}` in chip `{}` for input into chip `{}` but nothing set it (children are in the wrong order)", name_to_find, self.name, part.chip.name
-                                );
-                            }
-                        p
-                    },
-                    None => panic!(
-                        "want to use pin `{}` in chip `{}` for input into chip `{}` but we don't have it in input nor internal pins", name_to_find, self.name, part.chip.name
-                    )
-                };
-                part_input.push(pinline.clone());
+                let relevant_pinline =
+                    search_in.find(|p| p.name == name_to_find).unwrap();
+                let input_pinline =
+                    relevant_pinline.clone().into_own(connection);
+                part_input.push(input_pinline);
             }
 
             // Then generate output
@@ -213,35 +200,22 @@ impl Chip {
 
             // Set own output and internal pins accordingly
             for connection in part.get_output_connections() {
-                let name_to_find = connection.foreign.name.as_str();
-                let mut search_in =
-                    self.internal.iter().chain(self.output.iter());
-                match search_in.position(|p| p.name == name_to_find) {
-                    Some(i) => {
-                        if pins_set
-                                .iter()
-                                .any(|p| p == name_to_find)
-                            {
-                                panic!(
-                                    "want to set pin `{}` in chip `{}` from output of chip `{}` but it's already set", name_to_find, self.name, part.chip.name
-                                );
-                            }
-                        let to_set = part.chip.output
-                            .iter()
-                            .find(|o| o.name == name_to_find)
-                            .unwrap()
-                            .clone();
-                        pins_set.push(to_set.name.clone());
-                        if i < self.internal.len() {
-                            self.internal[i] = to_set;
-                        } else {
-                            self.output[i] = to_set;
-                        }
-                    },
-                    None => panic!(
-                        "want to set pin `{}` in chip `{}` from output of chip `{}` but we don't have it in output nor internal pins", name_to_find, self.name, part.chip.name
-                    )
-                };
+                let relevant_pinline = part
+                    .chip
+                    .output
+                    .get_pinline(connection.own.name.as_str())
+                    .unwrap();
+                let our_pinline =
+                    relevant_pinline.clone().into_foreign(connection);
+                if self
+                    .output
+                    .get_pinline(connection.foreign.name.as_str())
+                    .is_some()
+                {
+                    self.output.set_pinline(our_pinline);
+                } else {
+                    self.internal.set_pinline(our_pinline);
+                }
             }
         }
         &self.output
@@ -250,7 +224,7 @@ impl Chip {
         use BuiltinChips::*;
         match self.builtin_id.as_ref().unwrap() {
             Nand => {
-                let res = !self.input[0].pins[0] && !self.input[1].pins[0];
+                let res = !(self.input[0].pins[0] && self.input[1].pins[0]);
                 self.output[0].pins = vec![res];
             }
             Not => {
@@ -296,6 +270,37 @@ impl Pinline {
             pins: vec![false; size],
         }
     }
+    pub fn into_own(mut self: Pinline, connection: &ChildConnection) -> Self {
+        self.name = connection.own.name.clone();
+        let mut new_pins = vec![false; connection.own.indices.len()];
+        for (own_i, foreing_i) in connection
+            .own
+            .indices
+            .iter()
+            .zip(connection.foreign.indices.iter())
+        {
+            new_pins[*own_i] = self.pins[*foreing_i];
+        }
+        self.pins = new_pins;
+        self
+    }
+    pub fn into_foreign(
+        mut self: Pinline,
+        connection: &ChildConnection,
+    ) -> Self {
+        self.name = connection.foreign.name.clone();
+        let mut new_pins = vec![false; connection.foreign.indices.len()];
+        for (own_i, foreing_i) in connection
+            .own
+            .indices
+            .iter()
+            .zip(connection.foreign.indices.iter())
+        {
+            new_pins[*foreing_i] = self.pins[*own_i];
+        }
+        self.pins = new_pins;
+        self
+    }
     pub fn get_pin(&self, index: usize) -> Pin {
         // Bounds check here?
         self.pins[index]
@@ -332,7 +337,7 @@ impl ChildConnection {
 }
 
 impl PinlineConnection {
-    pub fn new(name: &str, indices: Vec<u32>) -> Self {
+    pub fn new(name: &str, indices: Vec<usize>) -> Self {
         Self {
             name: name.to_string(),
             indices,
@@ -355,15 +360,17 @@ mod tests {
         let mut res_actual = chip.evaluate();
         assert_eq!(res_actual, &res_expected);
 
-        res_expected[0].pins[0] = false;
-
         chip.set_input(vec![Pinline::new("a", vec![true])]);
         res_actual = chip.evaluate();
         assert_eq!(res_actual, &res_expected);
 
+        res_expected[0].pins[0] = false;
+
         chip.set_input(vec![Pinline::new("b", vec![true])]);
         res_actual = chip.evaluate();
         assert_eq!(res_actual, &res_expected);
+
+        res_expected[0].pins[0] = true;
 
         chip.set_input(vec![Pinline::new("a", vec![false])]);
         res_actual = chip.evaluate();
@@ -381,5 +388,81 @@ mod tests {
         chip.set_input(vec![Pinline::new("in", vec![true])]);
         res_actual = chip.evaluate();
         assert_eq!(res_actual, &res_expected);
+    }
+
+    fn construct_custom_and() -> Chip {
+        Chip::new_custom(
+            "And",
+            vec![
+                Pinline::with_capacity("a", 1),
+                Pinline::with_capacity("b", 1),
+            ],
+            vec![Pinline::with_capacity("out", 1)],
+            vec![
+                Child::new(
+                    Chip::new_builtin(BuiltinChips::Nand),
+                    vec![
+                        ChildConnection::new(
+                            PinlineConnection::new("a", vec![0]),
+                            PinlineConnection::new("a", vec![0]),
+                        ),
+                        ChildConnection::new(
+                            PinlineConnection::new("b", vec![0]),
+                            PinlineConnection::new("b", vec![0]),
+                        ),
+                        ChildConnection::new(
+                            PinlineConnection::new("out", vec![0]),
+                            PinlineConnection::new("c", vec![0]),
+                        ),
+                    ],
+                ),
+                Child::new(
+                    Chip::new_builtin(BuiltinChips::Nand),
+                    vec![
+                        ChildConnection::new(
+                            PinlineConnection::new("a", vec![0]),
+                            PinlineConnection::new("c", vec![0]),
+                        ),
+                        ChildConnection::new(
+                            PinlineConnection::new("b", vec![0]),
+                            PinlineConnection::new("c", vec![0]),
+                        ),
+                        ChildConnection::new(
+                            PinlineConnection::new("out", vec![0]),
+                            PinlineConnection::new("out", vec![0]),
+                        ),
+                    ],
+                ),
+            ],
+        )
+    }
+
+    #[test]
+    fn internal_pins() {
+        let and = construct_custom_and();
+        assert_eq!(and.internal, vec![Pinline::with_capacity("c", 1)]);
+    }
+    #[test]
+    fn custom_unclocked() {
+        let mut and = construct_custom_and();
+        let mut res_expected = vec![Pinline::new("out", vec![false])];
+        let mut res_actual = and.evaluate();
+        assert_eq!(&res_expected, res_actual);
+
+        and.set_input(vec![Pinline::new("a", vec![true])]);
+        res_actual = and.evaluate();
+        assert_eq!(&res_expected, res_actual);
+
+        res_expected[0].pins[0] = true;
+
+        and.set_input(vec![Pinline::new("b", vec![true])]);
+        res_actual = and.evaluate();
+        assert_eq!(&res_expected, res_actual);
+
+        res_expected[0].pins[0] = false;
+
+        and.set_input(vec![Pinline::new("a", vec![false])]);
+        res_actual = and.evaluate();
+        assert_eq!(&res_expected, res_actual);
     }
 }
