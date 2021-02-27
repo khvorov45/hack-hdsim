@@ -6,6 +6,7 @@ pub struct Chip {
     pub internal: Pinlines,
     pub parts: Vec<Child>,
     pub clocked: bool,
+    pub builtin_id: Option<BuiltinChips>,
 }
 
 pub type Pinlines = Vec<Pinline>;
@@ -85,6 +86,7 @@ impl Chip {
             parts,
             internal,
             clocked,
+            builtin_id: None,
         }
     }
     pub fn new_builtin(id: BuiltinChips) -> Self {
@@ -114,7 +116,11 @@ impl Chip {
             parts: Vec::with_capacity(0),
             internal: Vec::with_capacity(0),
             clocked,
+            builtin_id: None,
         }
+    }
+    pub fn is_builtin(&self) -> bool {
+        self.parts.is_empty()
     }
     /// Tick for clocked chips
     pub fn read_input(&mut self, input: Pinlines) {
@@ -131,7 +137,7 @@ impl Chip {
         // that are unclocked
     }
     /// Tock for clocked chips
-    pub fn produce_output(&self) -> Pinlines {
+    pub fn produce_output(&self) -> &Pinlines {
         if !self.clocked {
             panic!("produce_output is only for clocked chips")
         }
@@ -149,19 +155,21 @@ impl Chip {
             // name somewhere, if so - set the appropriate value.
         }
         // We probably need to rerun all the unclocked chips here as well
-        // Placeholder
-        vec![Pinline::new("a", 1)]
+        &self.output
     }
     /// For unclocked chips
-    pub fn evaluate(&mut self, input: Pinlines) -> Pinlines {
+    pub fn evaluate(&mut self, input: Pinlines) -> &Pinlines {
         if self.clocked {
             panic!("evaluate is only for unclocked chips")
         }
 
         // Verify input?
 
-        // Set input
         self.input = input;
+
+        if self.is_builtin() {
+            return self.evaluate_builtin();
+        }
 
         // If we force children to be in the right order then we should just
         // be able to go through them in order and have all the internal pins
@@ -199,7 +207,7 @@ impl Chip {
             }
 
             // Then generate output
-            let out = part.chip.evaluate(part_input);
+            part.chip.evaluate(part_input);
 
             // Set own output and internal pins accordingly
             for connection in part.get_output_connections() {
@@ -216,7 +224,7 @@ impl Chip {
                                     "want to set pin `{}` in chip `{}` from output of chip `{}` but it's already set", name_to_find, self.name, part.chip.name
                                 );
                             }
-                        let to_set = out
+                        let to_set = part.chip.output
                             .iter()
                             .find(|o| o.name == name_to_find)
                             .unwrap()
@@ -234,8 +242,21 @@ impl Chip {
                 };
             }
         }
-        // Placeholder
-        vec![Pinline::new("a", 1)]
+        &self.output
+    }
+    fn evaluate_builtin(&mut self) -> &Pinlines {
+        use BuiltinChips::*;
+        match self.builtin_id.as_ref().unwrap() {
+            Nand => {
+                let res = !self.input[0].pins[0] && self.input[1].pins[1];
+                self.output[0].pins = vec![res];
+            }
+            Not => {
+                let res = !self.input[0].pins[0];
+                self.output[0].pins = vec![res];
+            }
+        }
+        &self.output
     }
 }
 
