@@ -11,7 +11,7 @@ pub struct Chip {
 
 pub type Pinlines = Vec<Pinline>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Pinline {
     pub name: String,
     pub pins: Vec<Pin>,
@@ -72,7 +72,7 @@ impl Chip {
                     && output.get_pinline(name).is_none()
                     && internal.get_pinline(name).is_none()
                 {
-                    internal.push(Pinline::new(
+                    internal.push(Pinline::with_capacity(
                         name,
                         connection.foreign.get_pin_count(),
                     ));
@@ -98,14 +98,17 @@ impl Chip {
         match id {
             Nand => {
                 name = "Nand";
-                input = vec![Pinline::new("a", 1), Pinline::new("b", 1)];
-                output = vec![Pinline::new("out", 1)];
+                input = vec![
+                    Pinline::with_capacity("a", 1),
+                    Pinline::with_capacity("b", 1),
+                ];
+                output = vec![Pinline::with_capacity("out", 1)];
                 clocked = false;
             }
             Not => {
                 name = "Not";
-                input = vec![Pinline::new("in", 1)];
-                output = vec![Pinline::new("out", 1)];
+                input = vec![Pinline::with_capacity("in", 1)];
+                output = vec![Pinline::with_capacity("out", 1)];
                 clocked = false;
             }
         }
@@ -116,11 +119,14 @@ impl Chip {
             parts: Vec::with_capacity(0),
             internal: Vec::with_capacity(0),
             clocked,
-            builtin_id: None,
+            builtin_id: Some(id),
         }
     }
     pub fn is_builtin(&self) -> bool {
         self.parts.is_empty()
+    }
+    pub fn set_input(&mut self, input: Pinlines) {
+        self.input.set_pinlines(input);
     }
     /// Tick for clocked chips
     pub fn read_input(&mut self, input: Pinlines) {
@@ -158,15 +164,10 @@ impl Chip {
         &self.output
     }
     /// For unclocked chips
-    pub fn evaluate(&mut self, input: Pinlines) -> &Pinlines {
+    pub fn evaluate(&mut self) -> &Pinlines {
         if self.clocked {
             panic!("evaluate is only for unclocked chips")
         }
-
-        // Verify input?
-
-        self.input = input;
-
         if self.is_builtin() {
             return self.evaluate_builtin();
         }
@@ -207,7 +208,8 @@ impl Chip {
             }
 
             // Then generate output
-            part.chip.evaluate(part_input);
+            part.chip.set_input(part_input);
+            part.chip.evaluate();
 
             // Set own output and internal pins accordingly
             for connection in part.get_output_connections() {
@@ -248,7 +250,7 @@ impl Chip {
         use BuiltinChips::*;
         match self.builtin_id.as_ref().unwrap() {
             Nand => {
-                let res = !self.input[0].pins[0] && self.input[1].pins[1];
+                let res = !(self.input[0].pins[0] && self.input[1].pins[0]);
                 self.output[0].pins = vec![res];
             }
             Not => {
@@ -260,18 +262,35 @@ impl Chip {
     }
 }
 
-pub trait GetPinline {
+pub trait PinlinesMethods {
     fn get_pinline(&self, name: &str) -> Option<&Pinline>;
+    fn set_pinline(&mut self, pinline: Pinline);
+    fn set_pinlines(&mut self, pinline: Pinlines);
 }
 
-impl GetPinline for Pinlines {
+impl PinlinesMethods for Pinlines {
     fn get_pinline(&self, name: &str) -> Option<&Pinline> {
         self.iter().find(|p| p.name == name)
+    }
+    fn set_pinline(&mut self, pinline: Pinline) {
+        let i = self.iter().position(|p| p.name == pinline.name).unwrap();
+        self[i].pins = pinline.pins;
+    }
+    fn set_pinlines(&mut self, pinlines: Pinlines) {
+        for pinline in pinlines {
+            self.set_pinline(pinline)
+        }
     }
 }
 
 impl Pinline {
-    pub fn new(name: &str, size: usize) -> Self {
+    pub fn new(name: &str, pins: Vec<Pin>) -> Self {
+        Self {
+            name: name.to_string(),
+            pins,
+        }
+    }
+    pub fn with_capacity(name: &str, size: usize) -> Self {
         Self {
             name: name.to_string(),
             pins: vec![false; size],
@@ -330,66 +349,10 @@ impl PinlineConnection {
 mod tests {
     use super::*;
     #[test]
-    fn chip_new() {
-        let a_input_pinline = Pinline::new("a", 1);
-        let b_input_pinline = Pinline::new("b", 1);
-
-        let and_input: Pinlines = vec![a_input_pinline, b_input_pinline];
-
-        let out_output_pinline = Pinline::new("out", 1);
-        let and_output = vec![out_output_pinline];
-
-        let a_connection = PinlineConnection::new("a", vec![0]);
-        let b_connection = PinlineConnection::new("b", vec![0]);
-        let out_connection = PinlineConnection::new("out", vec![0]);
-
-        let a_to_a = ChildConnection::new(
-            a_connection.clone(),
-            PinlineConnection::new("a", vec![0]),
-        );
-
-        let b_to_b = ChildConnection::new(
-            b_connection.clone(),
-            PinlineConnection::new("b", vec![0]),
-        );
-
-        let out_to_c = ChildConnection::new(
-            out_connection.clone(),
-            PinlineConnection::new("c", vec![0]),
-        );
-
-        let first_child = Child::new(
-            Chip::new_builtin(BuiltinChips::Nand),
-            vec![a_to_a, b_to_b, out_to_c],
-        );
-
-        let a_to_c = ChildConnection::new(
-            a_connection,
-            PinlineConnection::new("c", vec![0]),
-        );
-
-        let b_to_c = ChildConnection::new(
-            b_connection,
-            PinlineConnection::new("c", vec![0]),
-        );
-
-        let out_to_out = ChildConnection::new(
-            out_connection,
-            PinlineConnection::new("out", vec![0]),
-        );
-
-        let second_child = Child::new(
-            Chip::new_builtin(BuiltinChips::Nand),
-            vec![a_to_c, b_to_c, out_to_out],
-        );
-
-        let and_parts = vec![first_child, second_child];
-
-        let and_chip =
-            Chip::new_custom("And", and_input, and_output, and_parts);
-
-        println!("{:#?}", and_chip);
-
-        assert!(false);
+    fn nand() {
+        let mut chip = Chip::new_builtin(BuiltinChips::Nand);
+        println!("{:#?}", chip);
+        let default_result = chip.evaluate();
+        assert_eq!(default_result, &vec![Pinline::new("out", vec![true])]);
     }
 }
