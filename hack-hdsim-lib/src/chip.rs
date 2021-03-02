@@ -1,12 +1,17 @@
 #[derive(Debug)]
 pub struct Chip {
     pub name: String,
-    pub input: Pinlines,
-    pub output: Pinlines,
-    pub internal: Pinlines,
+    pub pinlines: ChipPinlines,
     pub parts: Vec<Child>,
     pub clocked: bool,
     pub builtin_id: Option<BuiltinChips>,
+}
+
+#[derive(Debug)]
+pub struct ChipPinlines {
+    pub input: Pinlines,
+    pub internal: Pinlines,
+    pub output: Pinlines,
 }
 
 pub type Pinlines = Vec<Pinline>;
@@ -81,10 +86,8 @@ impl Chip {
         }
         Self {
             name: name.to_string(),
-            input,
-            output,
+            pinlines: ChipPinlines::new(input, internal, output),
             parts,
-            internal,
             clocked,
             builtin_id: None,
         }
@@ -114,10 +117,8 @@ impl Chip {
         }
         Self {
             name: name.to_string(),
-            input,
-            output,
+            pinlines: ChipPinlines::new(input, Vec::with_capacity(0), output),
             parts: Vec::with_capacity(0),
-            internal: Vec::with_capacity(0),
             clocked,
             builtin_id: Some(id),
         }
@@ -127,7 +128,7 @@ impl Chip {
     }
     pub fn set_input(&mut self, input: Pinlines) {
         // Verify input here I guess
-        self.input.set_pinlines(input);
+        self.pinlines.input.set_pinlines(input);
     }
     /// Tick for clocked chips
     pub fn read_input(&mut self) {
@@ -157,7 +158,7 @@ impl Chip {
             // name somewhere, if so - set the appropriate value.
         }*/
         // We probably need to rerun all the unclocked chips here as well
-        &self.output
+        &self.pinlines.output
     }
     /// For unclocked chips
     pub fn evaluate(&mut self) -> &Pinlines {
@@ -170,33 +171,70 @@ impl Chip {
 
         // Assume children are in the right order
         for part in &mut self.parts {
-            part.receive_input(
-                self.input.iter().chain(self.internal.iter()).collect(),
-            );
+            self.pinlines.send_input(part);
             part.chip.evaluate();
-
-            let mut output: Vec<&mut Pinline> = self
-                .internal
-                .iter_mut()
-                .chain(self.output.iter_mut())
-                .collect();
-            part.send_output(&mut output);
+            self.pinlines.receive_output(part);
         }
-        &self.output
+        &self.pinlines.output
     }
     fn evaluate_builtin(&mut self) -> &Pinlines {
         use BuiltinChips::*;
         match self.builtin_id.as_ref().unwrap() {
             Nand => {
-                let res = !(self.input[0].pins[0] && self.input[1].pins[0]);
-                self.output[0].pins = vec![res];
+                let res = !(self.pinlines.input[0].pins[0]
+                    && self.pinlines.input[1].pins[0]);
+                self.pinlines.output[0].pins = vec![res];
             }
             Not => {
-                let res = !self.input[0].pins[0];
-                self.output[0].pins = vec![res];
+                let res = !self.pinlines.input[0].pins[0];
+                self.pinlines.output[0].pins = vec![res];
             }
         }
-        &self.output
+        &self.pinlines.output
+    }
+}
+
+impl ChipPinlines {
+    pub fn new(input: Pinlines, internal: Pinlines, output: Pinlines) -> Self {
+        Self {
+            input,
+            internal,
+            output,
+        }
+    }
+    pub fn send_input(&self, part: &mut Child) {
+        let mut part_input =
+            Pinlines::with_capacity(part.chip.pinlines.input.len());
+        for connection in part.get_input_connections() {
+            let name_to_find = connection.foreign.name.as_str();
+            let relevant_pinline = self
+                .input
+                .iter()
+                .chain(self.internal.iter())
+                .find(|p| p.name == name_to_find)
+                .unwrap();
+            let input_pinline = relevant_pinline.clone().into_own(connection);
+            part_input.push(input_pinline);
+        }
+        part.chip.set_input(part_input);
+    }
+    pub fn receive_output(&mut self, part: &Child) {
+        for connection in part.get_output_connections() {
+            let relevant_pinline = part
+                .chip
+                .pinlines
+                .output
+                .get_pinline(connection.own.name.as_str())
+                .unwrap();
+            let our_pinline = relevant_pinline.clone().into_foreign(connection);
+            let pinline_to_replace = self
+                .internal
+                .iter_mut()
+                .chain(self.output.iter_mut())
+                .find(|p| p.name == connection.foreign.name.as_str())
+                .unwrap();
+            let _ = std::mem::replace(pinline_to_replace, our_pinline);
+        }
     }
 }
 
@@ -280,7 +318,11 @@ impl Child {
         self.connections
             .iter()
             .filter(|c| {
-                self.chip.input.get_pinline(c.own.name.as_str()).is_some()
+                self.chip
+                    .pinlines
+                    .input
+                    .get_pinline(c.own.name.as_str())
+                    .is_some()
             })
             .collect()
     }
@@ -288,35 +330,13 @@ impl Child {
         self.connections
             .iter()
             .filter(|c| {
-                self.chip.output.get_pinline(c.own.name.as_str()).is_some()
+                self.chip
+                    .pinlines
+                    .output
+                    .get_pinline(c.own.name.as_str())
+                    .is_some()
             })
             .collect()
-    }
-    pub fn receive_input(&mut self, input: Vec<&Pinline>) {
-        let mut part_input = Pinlines::with_capacity(self.chip.input.len());
-        for connection in self.get_input_connections() {
-            let name_to_find = connection.foreign.name.as_str();
-            let relevant_pinline =
-                *input.iter().find(|p| p.name == name_to_find).unwrap();
-            let input_pinline = relevant_pinline.clone().into_own(connection);
-            part_input.push(input_pinline);
-        }
-        self.chip.set_input(part_input);
-    }
-    pub fn send_output(&self, output_to: &mut [&mut Pinline]) {
-        for connection in self.get_output_connections() {
-            let relevant_pinline = self
-                .chip
-                .output
-                .get_pinline(connection.own.name.as_str())
-                .unwrap();
-            let our_pinline = relevant_pinline.clone().into_foreign(connection);
-            let pinline_to_replace = output_to
-                .iter_mut()
-                .find(|p| p.name == connection.foreign.name.as_str())
-                .unwrap();
-            let _ = std::mem::replace(*pinline_to_replace, our_pinline);
-        }
     }
 }
 
@@ -430,7 +450,7 @@ mod tests {
     #[test]
     fn internal_pins() {
         let and = construct_custom_and();
-        assert_eq!(and.internal, vec![Pinline::with_capacity("c", 1)]);
+        assert_eq!(and.pinlines.internal, vec![Pinline::with_capacity("c", 1)]);
     }
     #[test]
     fn custom_unclocked() {
