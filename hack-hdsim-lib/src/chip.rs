@@ -126,21 +126,17 @@ impl Chip {
         self.parts.is_empty()
     }
     pub fn set_input(&mut self, input: Pinlines) {
+        // Verify input here I guess
         self.input.set_pinlines(input);
     }
     /// Tick for clocked chips
-    pub fn read_input(&mut self, input: Pinlines) {
+    pub fn read_input(&mut self) {
         if !self.clocked {
             panic!("read_input is only for clocked chips");
         }
-        // Compare input to spec here presumably
 
-        self.input = input;
-
-        // Set input of all the children
-
-        // We also need to go through the children and actually run those
-        // that are unclocked
+        // So go through the children, run those that are unclocked,
+        // set input for the clocked. Assume children are in the right order
     }
     /// Tock for clocked chips
     pub fn produce_output(&self) -> &Pinlines {
@@ -181,21 +177,9 @@ impl Chip {
         // But not doing that right now, just trust child order
 
         for part in &mut self.parts {
-            // Construct input
-            let mut part_input = Pinlines::with_capacity(part.chip.input.len());
-            for connection in part.get_input_connections() {
-                let name_to_find = connection.foreign.name.as_str();
-                let mut search_in =
-                    self.input.iter().chain(self.internal.iter());
-                let relevant_pinline =
-                    search_in.find(|p| p.name == name_to_find).unwrap();
-                let input_pinline =
-                    relevant_pinline.clone().into_own(connection);
-                part_input.push(input_pinline);
-            }
-
-            // Then generate output
-            part.chip.set_input(part_input);
+            part.receive_input(
+                self.input.iter().chain(self.internal.iter()).collect(),
+            );
             part.chip.evaluate();
 
             // Set own output and internal pins accordingly
@@ -327,6 +311,17 @@ impl Child {
                 self.chip.output.get_pinline(c.own.name.as_str()).is_some()
             })
             .collect()
+    }
+    pub fn receive_input(&mut self, input: Vec<&Pinline>) {
+        let mut part_input = Pinlines::with_capacity(self.chip.input.len());
+        for connection in self.get_input_connections() {
+            let name_to_find = connection.foreign.name.as_str();
+            let relevant_pinline =
+                *input.iter().find(|p| p.name == name_to_find).unwrap();
+            let input_pinline = relevant_pinline.clone().into_own(connection);
+            part_input.push(input_pinline);
+        }
+        self.chip.set_input(part_input);
     }
 }
 
