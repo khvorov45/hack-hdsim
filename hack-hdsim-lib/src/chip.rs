@@ -168,39 +168,19 @@ impl Chip {
             return self.evaluate_builtin();
         }
 
-        // If we force children to be in the right order then we should just
-        // be able to go through them in order and have all the internal pins
-        // set to the appropriate value before we get there
-
-        // Input is set at this point, need to verify that internal pins and
-        // output pins are set before actually using them
-        // But not doing that right now, just trust child order
-
+        // Assume children are in the right order
         for part in &mut self.parts {
             part.receive_input(
                 self.input.iter().chain(self.internal.iter()).collect(),
             );
             part.chip.evaluate();
 
-            // Set own output and internal pins accordingly
-            for connection in part.get_output_connections() {
-                let relevant_pinline = part
-                    .chip
-                    .output
-                    .get_pinline(connection.own.name.as_str())
-                    .unwrap();
-                let our_pinline =
-                    relevant_pinline.clone().into_foreign(connection);
-                if self
-                    .output
-                    .get_pinline(connection.foreign.name.as_str())
-                    .is_some()
-                {
-                    self.output.set_pinline(our_pinline);
-                } else {
-                    self.internal.set_pinline(our_pinline);
-                }
-            }
+            let mut output: Vec<&mut Pinline> = self
+                .internal
+                .iter_mut()
+                .chain(self.output.iter_mut())
+                .collect();
+            part.send_output(&mut output);
         }
         &self.output
     }
@@ -322,6 +302,21 @@ impl Child {
             part_input.push(input_pinline);
         }
         self.chip.set_input(part_input);
+    }
+    pub fn send_output(&self, output_to: &mut [&mut Pinline]) {
+        for connection in self.get_output_connections() {
+            let relevant_pinline = self
+                .chip
+                .output
+                .get_pinline(connection.own.name.as_str())
+                .unwrap();
+            let our_pinline = relevant_pinline.clone().into_foreign(connection);
+            let pinline_to_replace = output_to
+                .iter_mut()
+                .find(|p| p.name == connection.foreign.name.as_str())
+                .unwrap();
+            let _ = std::mem::replace(*pinline_to_replace, our_pinline);
+        }
     }
 }
 
