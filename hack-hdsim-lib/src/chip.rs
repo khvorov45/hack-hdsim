@@ -136,28 +136,44 @@ impl Chip {
             panic!("read_input is only for clocked chips");
         }
 
-        // So go through the children, run those that are unclocked,
-        // set input for the clocked. Assume children are in the right order
+        // Assume unclocked children are in the right order
+
+        // Unclocked should stabilize first
+        for unclocked_part in self.parts.iter_mut().filter(|p| !p.chip.clocked)
+        {
+            self.pinlines.send_input(unclocked_part);
+            unclocked_part.chip.evaluate();
+            self.pinlines.receive_output(unclocked_part);
+        }
+
+        // Then clocked can read input
+        for clocked_part in self.parts.iter_mut().filter(|p| p.chip.clocked) {
+            self.pinlines.send_input(clocked_part);
+            clocked_part.chip.read_input();
+        }
     }
     /// Tock for clocked chips
-    pub fn produce_output(&self) -> &Pinlines {
+    pub fn produce_output(&mut self) -> &Pinlines {
         if !self.clocked {
             panic!("produce_output is only for clocked chips");
         }
-        /*for part in &self.parts {
-            // Go through each pinline and see if we've got its foreign name
-            // in our input or internal pins
-            // (output isn't plugged into anything).
-            // Then get the correspoding value in input.
-            // We should have the full input by the end of that.
 
-            let out = &part.chip; // .process_input(input: ChipIO);
+        // Assume unclocked children are in the right order
 
-            // Take the output and create the appropriate set of pins out of it.
-            // That is, go through the pins and see if we  have their foreign
-            // name somewhere, if so - set the appropriate value.
-        }*/
-        // We probably need to rerun all the unclocked chips here as well
+        // Clocked should produce their input first
+        for clocked_part in self.parts.iter_mut().filter(|p| p.chip.clocked) {
+            clocked_part.chip.produce_output();
+            self.pinlines.receive_output(clocked_part);
+        }
+
+        // Unclocked can then stabilize
+        for unclocked_part in self.parts.iter_mut().filter(|p| !p.chip.clocked)
+        {
+            self.pinlines.send_input(unclocked_part);
+            unclocked_part.chip.evaluate();
+            self.pinlines.receive_output(unclocked_part);
+        }
+
         &self.pinlines.output
     }
     /// For unclocked chips
