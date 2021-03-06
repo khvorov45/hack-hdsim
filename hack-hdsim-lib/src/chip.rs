@@ -48,6 +48,7 @@ pub enum BuiltinChips {
     Not,
     DFF,
     Mux,
+    Bit,
 }
 
 // ============================================================================
@@ -139,6 +140,19 @@ impl Chip {
                 output = vec![Pinline::with_capacity("out", 1)];
                 clocked = false;
                 internal = Vec::with_capacity(0);
+            }
+            Bit => {
+                name = "Bit";
+                input = vec![
+                    Pinline::with_capacity("in", 1),
+                    Pinline::with_capacity("load", 1),
+                ];
+                output = vec![Pinline::with_capacity("out", 1)];
+                clocked = true;
+                internal = vec![
+                    Pinline::with_capacity("buffer1", 1),
+                    Pinline::with_capacity("buffer2", 1),
+                ];
             }
         }
         Self {
@@ -270,6 +284,14 @@ impl Chip {
                 let new_internal = vec![new_buffer1, new_buffer2];
                 self.pinlines.internal = new_internal;
             }
+            Bit => {
+                self.pinlines.internal[1].pins[0] =
+                    self.pinlines.internal[0].pins[0];
+                if self.pinlines.input[1].pins[0] {
+                    self.pinlines.internal[0].pins[0] =
+                        self.pinlines.input[0].pins[0];
+                }
+            }
             _ => panic!(
                 "builtin chip {:?} is unclocked, can't read input",
                 self.builtin_id.clone().unwrap()
@@ -288,6 +310,10 @@ impl Chip {
                     .clone();
                 new_output.name = "out".to_string();
                 self.pinlines.output = vec![new_output];
+            }
+            Bit => {
+                self.pinlines.output[0].pins[0] =
+                    self.pinlines.internal[1].pins[0];
             }
             _ => panic!(
                 "builtin chip {:?} is unclocked, can't produce output",
@@ -544,6 +570,45 @@ mod tests {
             Pinline::new("sel", vec![false]),
         ]);
         res_actual = chip.evaluate();
+        assert_eq!(res_actual, &res_expected);
+    }
+    #[test]
+    fn bit() {
+        let mut chip = Chip::new_builtin(BuiltinChips::Bit);
+        let mut res_expected = vec![Pinline::new("out", vec![false])];
+        chip.set_input(vec![
+            Pinline::new("in", vec![true]),
+            Pinline::new("load", vec![true]),
+        ]);
+        chip.read_input();
+        let mut res_actual = chip.produce_output();
+        assert_eq!(res_actual, &res_expected);
+
+        res_expected[0].pins[0] = true;
+
+        chip.set_input(vec![Pinline::new("in", vec![false])]);
+
+        chip.read_input();
+        res_actual = chip.produce_output();
+        assert_eq!(res_actual, &res_expected);
+
+        res_expected[0].pins[0] = false;
+
+        chip.read_input();
+        res_actual = chip.produce_output();
+        assert_eq!(res_actual, &res_expected);
+
+        chip.set_input(vec![
+            Pinline::new("in", vec![true]),
+            Pinline::new("load", vec![false]),
+        ]);
+
+        chip.read_input();
+        res_actual = chip.produce_output();
+        assert_eq!(res_actual, &res_expected);
+
+        chip.read_input();
+        res_actual = chip.produce_output();
         assert_eq!(res_actual, &res_expected);
     }
 
