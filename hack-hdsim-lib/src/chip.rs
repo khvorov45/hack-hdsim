@@ -572,9 +572,7 @@ mod tests {
         res_actual = chip.evaluate();
         assert_eq!(res_actual, &res_expected);
     }
-    #[test]
-    fn bit() {
-        let mut chip = Chip::new_builtin(BuiltinChips::Bit);
+    fn test_bit(mut chip: Chip) {
         let mut res_expected = vec![Pinline::new("out", vec![false])];
         chip.set_input(vec![
             Pinline::new("in", vec![true]),
@@ -610,6 +608,11 @@ mod tests {
         chip.read_input();
         res_actual = chip.produce_output();
         assert_eq!(res_actual, &res_expected);
+    }
+    #[test]
+    fn bit() {
+        let chip = Chip::new_builtin(BuiltinChips::Bit);
+        test_bit(chip);
     }
 
     fn construct_custom_and() -> Chip {
@@ -659,6 +662,57 @@ mod tests {
         )
     }
 
+    fn construct_custom_bit() -> Chip {
+        Chip::new_custom(
+            "Bit",
+            vec![
+                Pinline::with_capacity("in", 1),
+                Pinline::with_capacity("load", 1),
+            ],
+            vec![Pinline::with_capacity("out", 1)],
+            vec![
+                Child::new(
+                    Chip::new_builtin(BuiltinChips::Mux),
+                    vec![
+                        ChildConnection::new(
+                            PinlineConnection::new("b", vec![0]),
+                            PinlineConnection::new("in", vec![0]),
+                        ),
+                        ChildConnection::new(
+                            PinlineConnection::new("a", vec![0]),
+                            PinlineConnection::new("checkout", vec![0]),
+                        ),
+                        ChildConnection::new(
+                            PinlineConnection::new("sel", vec![0]),
+                            PinlineConnection::new("load", vec![0]),
+                        ),
+                        ChildConnection::new(
+                            PinlineConnection::new("out", vec![0]),
+                            PinlineConnection::new("int", vec![0]),
+                        ),
+                    ],
+                ),
+                Child::new(
+                    Chip::new_builtin(BuiltinChips::DFF),
+                    vec![
+                        ChildConnection::new(
+                            PinlineConnection::new("in", vec![0]),
+                            PinlineConnection::new("int", vec![0]),
+                        ),
+                        ChildConnection::new(
+                            PinlineConnection::new("out", vec![0]),
+                            PinlineConnection::new("out", vec![0]),
+                        ),
+                        ChildConnection::new(
+                            PinlineConnection::new("out", vec![0]),
+                            PinlineConnection::new("checkout", vec![0]),
+                        ),
+                    ],
+                ),
+            ],
+        )
+    }
+
     #[test]
     fn internal_pins() {
         let and = construct_custom_and();
@@ -686,5 +740,10 @@ mod tests {
         and.set_input(vec![Pinline::new("a", vec![false])]);
         res_actual = and.evaluate();
         assert_eq!(&res_expected, res_actual);
+    }
+    #[test]
+    fn custom_clocked() {
+        let bit = construct_custom_bit();
+        test_bit(bit)
     }
 }
