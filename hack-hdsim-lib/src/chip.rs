@@ -27,10 +27,11 @@ pub type Pin = bool;
 #[derive(Debug)]
 pub struct Child {
     pub chip: Chip,
-    pub connections: Vec<ChildConnection>,
+    pub input_connections: Vec<ChildConnection>,
+    pub output_connections: Vec<ChildConnection>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ChildConnection {
     pub own: PinlineConnection,
     pub foreign: PinlineConnection,
@@ -73,7 +74,11 @@ impl Chip {
                 clocked = true
             }
             // Figure out what the internal pins are
-            for connection in &part.connections {
+            for connection in part
+                .input_connections
+                .iter()
+                .chain(part.output_connections.iter())
+            {
                 // Any name not already present somewhere should be added
                 let name = connection.foreign.name.as_str();
                 if input.get_pinline(name).is_none()
@@ -315,9 +320,7 @@ impl ChipPinlines {
         }
     }
     pub fn send_input(&self, part: &mut Child) {
-        let mut part_input =
-            Pinlines::with_capacity(part.chip.pinlines.input.len());
-        for connection in part.get_input_connections() {
+        for connection in &part.input_connections {
             let name_to_find = connection.foreign.name.as_str();
             let relevant_pinline = self
                 .input
@@ -326,12 +329,11 @@ impl ChipPinlines {
                 .find(|p| p.name == name_to_find)
                 .unwrap();
             let input_pinline = relevant_pinline.clone().into_own(connection);
-            part_input.push(input_pinline);
+            part.chip.pinlines.input.set_pinline(input_pinline);
         }
-        part.chip.pinlines.input.set_pinlines(part_input);
     }
     pub fn receive_output(&mut self, part: &Child) {
-        for connection in part.get_output_connections() {
+        for connection in &part.output_connections {
             let relevant_pinline = part
                 .chip
                 .pinlines
@@ -424,31 +426,31 @@ impl Pinline {
 impl Child {
     pub fn new(chip: Chip, connections: Vec<ChildConnection>) -> Self {
         // Verify that connection names make sense?
-        Self { chip, connections }
-    }
-    pub fn get_input_connections(&self) -> Vec<&ChildConnection> {
-        self.connections
+        let input_connections = connections
             .iter()
             .filter(|c| {
-                self.chip
-                    .pinlines
+                chip.pinlines
                     .input
                     .get_pinline(c.own.name.as_str())
                     .is_some()
             })
-            .collect()
-    }
-    pub fn get_output_connections(&self) -> Vec<&ChildConnection> {
-        self.connections
+            .cloned()
+            .collect();
+        let output_connections = connections
             .iter()
             .filter(|c| {
-                self.chip
-                    .pinlines
+                chip.pinlines
                     .output
                     .get_pinline(c.own.name.as_str())
                     .is_some()
             })
-            .collect()
+            .cloned()
+            .collect();
+        Self {
+            chip,
+            input_connections,
+            output_connections,
+        }
     }
 }
 
