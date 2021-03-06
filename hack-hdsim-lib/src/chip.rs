@@ -166,10 +166,6 @@ impl Chip {
     pub fn is_builtin(&self) -> bool {
         self.parts.is_empty()
     }
-    pub fn set_input(&mut self, input: Pinlines) {
-        // Verify input here I guess
-        self.pinlines.input.set_pinlines(input);
-    }
     /// Tick for clocked chips
     pub fn read_input(&mut self) {
         if !self.clocked {
@@ -332,7 +328,7 @@ impl ChipPinlines {
             let input_pinline = relevant_pinline.clone().into_own(connection);
             part_input.push(input_pinline);
         }
-        part.chip.set_input(part_input);
+        part.chip.pinlines.input.set_pinlines(part_input);
     }
     pub fn receive_output(&mut self, part: &Child) {
         for connection in part.get_output_connections() {
@@ -486,19 +482,25 @@ mod tests {
         let mut res_actual = chip.evaluate();
         assert_eq!(res_actual, &res_expected);
 
-        chip.set_input(vec![Pinline::new("a", vec![true])]);
+        chip.pinlines
+            .input
+            .set_pinline(Pinline::new("a", vec![true]));
         res_actual = chip.evaluate();
         assert_eq!(res_actual, &res_expected);
 
         res_expected[0].pins[0] = false;
 
-        chip.set_input(vec![Pinline::new("b", vec![true])]);
+        chip.pinlines
+            .input
+            .set_pinline(Pinline::new("b", vec![true]));
         res_actual = chip.evaluate();
         assert_eq!(res_actual, &res_expected);
 
         res_expected[0].pins[0] = true;
 
-        chip.set_input(vec![Pinline::new("a", vec![false])]);
+        chip.pinlines
+            .input
+            .set_pinline(Pinline::new("a", vec![false]));
         res_actual = chip.evaluate();
         assert_eq!(res_actual, &res_expected);
     }
@@ -511,7 +513,9 @@ mod tests {
 
         res_expected[0].pins[0] = false;
 
-        chip.set_input(vec![Pinline::new("in", vec![true])]);
+        chip.pinlines
+            .input
+            .set_pinline(Pinline::new("in", vec![true]));
         res_actual = chip.evaluate();
         assert_eq!(res_actual, &res_expected);
     }
@@ -519,14 +523,18 @@ mod tests {
     fn dff() {
         let mut chip = Chip::new_builtin(BuiltinChips::DFF);
         let mut res_expected = vec![Pinline::new("out", vec![false])];
-        chip.set_input(vec![Pinline::new("in", vec![true])]);
+        chip.pinlines
+            .input
+            .set_pinline(Pinline::new("in", vec![true]));
         chip.read_input();
         let mut res_actual = chip.produce_output();
         assert_eq!(res_actual, &res_expected);
 
         res_expected[0].pins[0] = true;
 
-        chip.set_input(vec![Pinline::new("in", vec![false])]);
+        chip.pinlines
+            .input
+            .set_pinline(Pinline::new("in", vec![false]));
         chip.read_input();
         res_actual = chip.produce_output();
         assert_eq!(res_actual, &res_expected);
@@ -540,17 +548,21 @@ mod tests {
     fn mux() {
         let mut chip = Chip::new_builtin(BuiltinChips::Mux);
         let mut res_expected = vec![Pinline::new("out", vec![false])];
-        chip.set_input(vec![Pinline::new("b", vec![true])]);
+        chip.pinlines
+            .input
+            .set_pinline(Pinline::new("b", vec![true]));
         let mut res_actual = chip.evaluate();
         assert_eq!(res_actual, &res_expected);
 
         res_expected[0].pins[0] = true;
 
-        chip.set_input(vec![Pinline::new("sel", vec![true])]);
+        chip.pinlines
+            .input
+            .set_pinline(Pinline::new("sel", vec![true]));
         res_actual = chip.evaluate();
         assert_eq!(res_actual, &res_expected);
 
-        chip.set_input(vec![
+        chip.pinlines.input.set_pinlines(vec![
             Pinline::new("a", vec![true]),
             Pinline::new("b", vec![false]),
             Pinline::new("sel", vec![false]),
@@ -560,7 +572,7 @@ mod tests {
     }
     fn test_bit(mut chip: Chip) {
         let mut res_expected = vec![Pinline::new("out", vec![false])];
-        chip.set_input(vec![
+        chip.pinlines.input.set_pinlines(vec![
             Pinline::new("in", vec![true]),
             Pinline::new("load", vec![true]),
         ]);
@@ -570,7 +582,9 @@ mod tests {
 
         res_expected[0].pins[0] = true;
 
-        chip.set_input(vec![Pinline::new("in", vec![false])]);
+        chip.pinlines
+            .input
+            .set_pinline(Pinline::new("in", vec![false]));
 
         chip.read_input();
         res_actual = chip.produce_output();
@@ -582,7 +596,7 @@ mod tests {
         res_actual = chip.produce_output();
         assert_eq!(res_actual, &res_expected);
 
-        chip.set_input(vec![
+        chip.pinlines.input.set_pinlines(vec![
             Pinline::new("in", vec![true]),
             Pinline::new("load", vec![false]),
         ]);
@@ -711,19 +725,25 @@ mod tests {
         let mut res_actual = and.evaluate();
         assert_eq!(&res_expected, res_actual);
 
-        and.set_input(vec![Pinline::new("a", vec![true])]);
+        and.pinlines
+            .input
+            .set_pinline(Pinline::new("a", vec![true]));
         res_actual = and.evaluate();
         assert_eq!(&res_expected, res_actual);
 
         res_expected[0].pins[0] = true;
 
-        and.set_input(vec![Pinline::new("b", vec![true])]);
+        and.pinlines
+            .input
+            .set_pinline(Pinline::new("b", vec![true]));
         res_actual = and.evaluate();
         assert_eq!(&res_expected, res_actual);
 
         res_expected[0].pins[0] = false;
 
-        and.set_input(vec![Pinline::new("a", vec![false])]);
+        and.pinlines
+            .input
+            .set_pinline(Pinline::new("a", vec![false]));
         res_actual = and.evaluate();
         assert_eq!(&res_expected, res_actual);
     }
