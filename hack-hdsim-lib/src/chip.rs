@@ -245,11 +245,11 @@ impl Chip {
             Nand => {
                 let res = !(self.pinlines.input[0].pins[0]
                     && self.pinlines.input[1].pins[0]);
-                self.pinlines.output[0].pins = vec![res];
+                self.pinlines.output[0].pins[0] = res;
             }
             Not => {
                 let res = !self.pinlines.input[0].pins[0];
-                self.pinlines.output[0].pins = vec![res];
+                self.pinlines.output[0].pins[0] = res;
             }
             Mux => {
                 let res: Pin;
