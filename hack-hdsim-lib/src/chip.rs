@@ -47,6 +47,7 @@ pub enum BuiltinChips {
     Nand,
     Not,
     DFF,
+    Mux,
 }
 
 // ============================================================================
@@ -127,6 +128,17 @@ impl Chip {
                     Pinline::with_capacity("buffer1", 1),
                     Pinline::with_capacity("buffer2", 1),
                 ];
+            }
+            Mux => {
+                name = "Mux";
+                input = vec![
+                    Pinline::with_capacity("a", 1),
+                    Pinline::with_capacity("b", 1),
+                    Pinline::with_capacity("sel", 1),
+                ];
+                output = vec![Pinline::with_capacity("out", 1)];
+                clocked = false;
+                internal = Vec::with_capacity(0);
             }
         }
         Self {
@@ -224,6 +236,15 @@ impl Chip {
             Not => {
                 let res = !self.pinlines.input[0].pins[0];
                 self.pinlines.output[0].pins = vec![res];
+            }
+            Mux => {
+                let res: Pin;
+                if self.pinlines.input[2].pins[0] {
+                    res = self.pinlines.input[1].pins[0]
+                } else {
+                    res = self.pinlines.input[0].pins[0]
+                }
+                self.pinlines.output[0].pins[0] = res;
             }
             _ => panic!(
                 "builtin chip {:?} is clocked, can't evaluate",
@@ -501,6 +522,28 @@ mod tests {
         res_expected[0].pins[0] = false;
         chip.read_input();
         res_actual = chip.produce_output();
+        assert_eq!(res_actual, &res_expected);
+    }
+    #[test]
+    fn mux() {
+        let mut chip = Chip::new_builtin(BuiltinChips::Mux);
+        let mut res_expected = vec![Pinline::new("out", vec![false])];
+        chip.set_input(vec![Pinline::new("b", vec![true])]);
+        let mut res_actual = chip.evaluate();
+        assert_eq!(res_actual, &res_expected);
+
+        res_expected[0].pins[0] = true;
+
+        chip.set_input(vec![Pinline::new("sel", vec![true])]);
+        res_actual = chip.evaluate();
+        assert_eq!(res_actual, &res_expected);
+
+        chip.set_input(vec![
+            Pinline::new("a", vec![true]),
+            Pinline::new("b", vec![false]),
+            Pinline::new("sel", vec![false]),
+        ]);
+        res_actual = chip.evaluate();
         assert_eq!(res_actual, &res_expected);
     }
 
