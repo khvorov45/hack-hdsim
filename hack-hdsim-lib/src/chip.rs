@@ -42,10 +42,11 @@ pub struct PinlineConnection {
     pub indices: Vec<usize>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BuiltinChips {
     Nand,
     Not,
+    DFF,
 }
 
 // ============================================================================
@@ -97,6 +98,7 @@ impl Chip {
         let name: &str;
         let input: Pinlines;
         let output: Pinlines;
+        let internal: Pinlines;
         let clocked: bool;
         match id {
             Nand => {
@@ -107,17 +109,29 @@ impl Chip {
                 ];
                 output = vec![Pinline::with_capacity("out", 1)];
                 clocked = false;
+                internal = Vec::with_capacity(0);
             }
             Not => {
                 name = "Not";
                 input = vec![Pinline::with_capacity("in", 1)];
                 output = vec![Pinline::with_capacity("out", 1)];
                 clocked = false;
+                internal = Vec::with_capacity(0);
+            }
+            DFF => {
+                name = "DFF";
+                input = vec![Pinline::with_capacity("in", 1)];
+                output = vec![Pinline::with_capacity("out", 1)];
+                clocked = true;
+                internal = vec![
+                    Pinline::with_capacity("buffer1", 1),
+                    Pinline::with_capacity("buffer2", 1),
+                ];
             }
         }
         Self {
             name: name.to_string(),
-            pinlines: ChipPinlines::new(input, Vec::with_capacity(0), output),
+            pinlines: ChipPinlines::new(input, internal, output),
             parts: Vec::with_capacity(0),
             clocked,
             builtin_id: Some(id),
@@ -134,6 +148,9 @@ impl Chip {
     pub fn read_input(&mut self) {
         if !self.clocked {
             panic!("read_input is only for clocked chips");
+        }
+        if self.is_builtin() {
+            return self.read_input_builtin();
         }
 
         // Assume unclocked children are in the right order
@@ -156,6 +173,9 @@ impl Chip {
     pub fn produce_output(&mut self) -> &Pinlines {
         if !self.clocked {
             panic!("produce_output is only for clocked chips");
+        }
+        if self.is_builtin() {
+            return self.produce_output_builtin();
         }
 
         // Assume unclocked children are in the right order
@@ -205,6 +225,53 @@ impl Chip {
                 let res = !self.pinlines.input[0].pins[0];
                 self.pinlines.output[0].pins = vec![res];
             }
+            _ => panic!(
+                "builtin chip {:?} is clocked, can't evaluate",
+                self.builtin_id.clone().unwrap()
+            ),
+        }
+        &self.pinlines.output
+    }
+    fn read_input_builtin(&mut self) {
+        use BuiltinChips::*;
+        match self.builtin_id.as_ref().unwrap() {
+            DFF => {
+                let mut new_buffer2 = self
+                    .pinlines
+                    .internal
+                    .get_pinline("buffer1")
+                    .unwrap()
+                    .clone();
+                new_buffer2.name = "buffer2".to_string();
+                let mut new_buffer1 =
+                    self.pinlines.input.get_pinline("in").unwrap().clone();
+                new_buffer1.name = "buffer1".to_string();
+                let new_internal = vec![new_buffer1, new_buffer2];
+                self.pinlines.internal = new_internal;
+            }
+            _ => panic!(
+                "builtin chip {:?} is unclocked, can't read input",
+                self.builtin_id.clone().unwrap()
+            ),
+        }
+    }
+    fn produce_output_builtin(&mut self) -> &Pinlines {
+        use BuiltinChips::*;
+        match self.builtin_id.as_ref().unwrap() {
+            DFF => {
+                let mut new_output = self
+                    .pinlines
+                    .internal
+                    .get_pinline("buffer2")
+                    .unwrap()
+                    .clone();
+                new_output.name = "out".to_string();
+                self.pinlines.output = vec![new_output];
+            }
+            _ => panic!(
+                "builtin chip {:?} is unclocked, can't produce output",
+                self.builtin_id.clone().unwrap()
+            ),
         }
         &self.pinlines.output
     }
@@ -413,6 +480,27 @@ mod tests {
 
         chip.set_input(vec![Pinline::new("in", vec![true])]);
         res_actual = chip.evaluate();
+        assert_eq!(res_actual, &res_expected);
+    }
+    #[test]
+    fn dff() {
+        let mut chip = Chip::new_builtin(BuiltinChips::DFF);
+        let mut res_expected = vec![Pinline::new("out", vec![false])];
+        chip.set_input(vec![Pinline::new("in", vec![true])]);
+        chip.read_input();
+        let mut res_actual = chip.produce_output();
+        assert_eq!(res_actual, &res_expected);
+
+        res_expected[0].pins[0] = true;
+
+        chip.set_input(vec![Pinline::new("in", vec![false])]);
+        chip.read_input();
+        res_actual = chip.produce_output();
+        assert_eq!(res_actual, &res_expected);
+
+        res_expected[0].pins[0] = false;
+        chip.read_input();
+        res_actual = chip.produce_output();
         assert_eq!(res_actual, &res_expected);
     }
 
