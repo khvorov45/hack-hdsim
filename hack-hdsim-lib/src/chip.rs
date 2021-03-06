@@ -271,18 +271,10 @@ impl Chip {
         use BuiltinChips::*;
         match self.builtin_id.as_ref().unwrap() {
             DFF => {
-                let mut new_buffer2 = self
-                    .pinlines
-                    .internal
-                    .get_pinline("buffer1")
-                    .unwrap()
-                    .clone();
-                new_buffer2.name = "buffer2".to_string();
-                let mut new_buffer1 =
-                    self.pinlines.input.get_pinline("in").unwrap().clone();
-                new_buffer1.name = "buffer1".to_string();
-                let new_internal = vec![new_buffer1, new_buffer2];
-                self.pinlines.internal = new_internal;
+                self.pinlines.internal[1].pins[0] =
+                    self.pinlines.internal[0].pins[0];
+                self.pinlines.internal[0].pins[0] =
+                    self.pinlines.input[0].pins[0];
             }
             Bit => {
                 self.pinlines.internal[1].pins[0] =
@@ -302,14 +294,8 @@ impl Chip {
         use BuiltinChips::*;
         match self.builtin_id.as_ref().unwrap() {
             DFF => {
-                let mut new_output = self
-                    .pinlines
-                    .internal
-                    .get_pinline("buffer2")
-                    .unwrap()
-                    .clone();
-                new_output.name = "out".to_string();
-                self.pinlines.output = vec![new_output];
+                self.pinlines.output[0].pins[0] =
+                    self.pinlines.internal[1].pins[0];
             }
             Bit => {
                 self.pinlines.output[0].pins[0] =
