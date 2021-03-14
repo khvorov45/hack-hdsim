@@ -61,6 +61,21 @@ impl<'a> Tokeniser<'a> {
         let mut iter = self.itr.clone();
         iter.next()
     }
+    fn next_word(
+        &mut self,
+        first: fn(char) -> bool,
+        split: fn(char) -> bool,
+    ) -> Option<&str> {
+        let ch = self.peek()?;
+        if !first(ch) {
+            return None;
+        }
+        let w = self.itr.as_str().split(split).next()?;
+        for _ in w.chars() {
+            self.next();
+        }
+        Some(w)
+    }
 
     pub fn tokenise_chip(&mut self) -> Result<(), UnexpectedToken> {
         self.tokenise_keyword("CHIP")?;
@@ -133,26 +148,22 @@ impl<'a> Tokeniser<'a> {
             nline: self.nline,
             nchar: self.nchar,
         });
-        let next_ch = self.peek();
-        if next_ch == None {
+        let identifier = self.next_word(
+            |first| first.is_alphabetic() || first == '_',
+            |ch| !ch.is_alphanumeric() && ch != '_',
+        );
+        if identifier.is_none() {
             return err;
         }
-        let next_ch = next_ch.unwrap();
-        if !next_ch.is_alphabetic() && next_ch != '_' {
-            return err;
-        }
-        let mut itr_word = self
-            .itr
-            .as_str()
-            .split(|ch: char| !ch.is_alphanumeric() && ch != '_');
-        let identifier = itr_word.next().unwrap();
+        let identifier = identifier.unwrap();
+
         if is_keyword(identifier) || is_symbol(identifier) {
             return err;
         }
-        for _ in identifier.chars() {
-            self.next();
-        }
-        self.tokens.push(Token::Identifier(identifier.to_string()));
+
+        let identifier = identifier.to_string();
+        self.tokens.push(Token::Identifier(identifier));
+
         if let Some(ch) = self.peek() {
             if ch == '[' {
                 self.tokenise_symbol('[')?;
@@ -170,20 +181,14 @@ impl<'a> Tokeniser<'a> {
             nline: self.nline,
             nchar: self.nchar,
         });
-        let next_ch = self.peek();
-        if next_ch == None {
+
+        let number =
+            self.next_word(|first| first.is_digit(10), |ch| !ch.is_digit(10));
+        if number.is_none() {
             return err;
         }
-        let next_ch = next_ch.unwrap();
-        if !next_ch.is_digit(10) {
-            return err;
-        }
-        let mut itr_word = self.itr.as_str().split(|ch: char| !ch.is_digit(10));
-        let num = itr_word.next().unwrap();
-        for _ in num.chars() {
-            self.next();
-        }
-        self.tokens.push(Token::Number(num.parse().unwrap()));
+        let number = number.unwrap().parse().unwrap();
+        self.tokens.push(Token::Number(number));
         self.skip_nontokens();
         Ok(())
     }
