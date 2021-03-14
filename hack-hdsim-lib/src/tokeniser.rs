@@ -28,16 +28,6 @@ pub struct UnexpectedToken {
     nchar: i32,
 }
 
-impl UnexpectedToken {
-    pub fn new(expected: Token, nline: i32, nchar: i32) -> Self {
-        Self {
-            expected,
-            nline,
-            nchar,
-        }
-    }
-}
-
 pub struct Tokeniser<'a> {
     tokens: Vec<Token>,
     itr: std::str::Chars<'a>,
@@ -138,11 +128,11 @@ impl<'a> Tokeniser<'a> {
     /// alphanumeric characters and `_` are considered to be an identifier.
     pub fn tokenise_identifier(&mut self) -> Result<(), UnexpectedToken> {
         self.skip_nontokens();
-        let err = Err(UnexpectedToken::new(
-            Token::Identifier("identifier".to_string()),
-            self.nline,
-            self.nchar,
-        ));
+        let err = Err(UnexpectedToken {
+            expected: Token::Identifier("identifier".to_string()),
+            nline: self.nline,
+            nchar: self.nchar,
+        });
         let next_ch = self.peek();
         if next_ch == None {
             return err;
@@ -175,11 +165,11 @@ impl<'a> Tokeniser<'a> {
     }
     fn tokenise_number(&mut self) -> Result<(), UnexpectedToken> {
         self.skip_nontokens();
-        let err = Err(UnexpectedToken::new(
-            Token::Number(69),
-            self.nchar,
-            self.nline,
-        ));
+        let err = Err(UnexpectedToken {
+            expected: Token::Number(69),
+            nline: self.nline,
+            nchar: self.nchar,
+        });
         let next_ch = self.peek();
         if next_ch == None {
             return err;
@@ -202,37 +192,39 @@ impl<'a> Tokeniser<'a> {
         keyword: &str,
     ) -> Result<(), UnexpectedToken> {
         self.skip_nontokens();
+        let token = Token::Keyword(keyword.to_string());
         if self.itr.as_str().starts_with(keyword) {
             for _ in keyword.chars() {
                 self.next();
             }
-            self.tokens.push(Token::Keyword(keyword.to_string()));
+            self.tokens.push(token);
             self.skip_nontokens();
             return Ok(());
         }
-        Err(UnexpectedToken::new(
-            Token::Keyword(keyword.to_string()),
-            self.nline,
-            self.nchar,
-        ))
+        Err(UnexpectedToken {
+            expected: token,
+            nline: self.nline,
+            nchar: self.nchar,
+        })
     }
     pub fn tokenise_symbol(
         &mut self,
         symbol: char,
     ) -> Result<(), UnexpectedToken> {
         self.skip_nontokens();
+        let token = Token::Symbol(symbol);
         if let Some(ch) = self.next() {
             if ch == symbol {
-                self.tokens.push(Token::Symbol(ch));
+                self.tokens.push(token);
                 self.skip_nontokens();
                 return Ok(());
             }
         }
-        Err(UnexpectedToken::new(
-            Token::Symbol(symbol),
-            self.nline,
-            self.nchar,
-        ))
+        Err(UnexpectedToken {
+            expected: token,
+            nline: self.nline,
+            nchar: self.nchar,
+        })
     }
     fn skip_nontokens(&mut self) {
         while self.skip_whitespace()
@@ -361,8 +353,11 @@ c=d
         let contents = "NOTCHIP {";
         let mut tokeniser = Tokeniser::new(contents);
         let chip_err = tokeniser.tokenise_keyword("CHIP").unwrap_err();
-        let chip_err_exp =
-            UnexpectedToken::new(Token::Keyword("CHIP".to_string()), 1, 1);
+        let chip_err_exp = UnexpectedToken {
+            expected: Token::Keyword("CHIP".to_string()),
+            nline: 1,
+            nchar: 1,
+        };
         assert_eq!(chip_err, chip_err_exp);
     }
     #[test]
@@ -387,11 +382,11 @@ c=d
     #[test]
     fn tokenise_identifier() {
         let token_exp = Token::Identifier("And".to_string());
-        let err_exp = UnexpectedToken::new(
-            Token::Identifier("identifier".to_string()),
-            1,
-            1,
-        );
+        let err_exp = UnexpectedToken {
+            expected: Token::Identifier("identifier".to_string()),
+            nline: 1,
+            nchar: 1,
+        };
 
         let mut tokeniser = Tokeniser::new("/**/  And");
         tokeniser.tokenise_identifier().unwrap();
