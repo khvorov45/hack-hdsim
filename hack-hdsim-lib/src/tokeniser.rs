@@ -1,67 +1,24 @@
-// TO DO
-// Don't eat commas?
-// Tokenize a[1..10] type statements
-// Better optional tokenisation - empty vectors?
-// Split token and tokeniser modules?
-
 const KEYWORDS: &[&str] = &["CHIP", "IN", "OUT", "PARTS"];
-const SYMBOLS: &[&str] = &["=", "{", ";", "}", ":", "(", ")", "[", "]"];
+const SYMBOLS: &[char] = &['=', '{', ';', '}', ':', '(', ')', '[', ']'];
 
-/// Holds the types the tokens may have
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub enum TokenType {
-    Keyword,
-    Symbol,
-    Identifier,
-    Number,
+fn is_keyword(s: &str) -> bool {
+    KEYWORDS.iter().any(|k| k == &s)
 }
 
-/// Returns `true` if `word` is in `arr`, `false` otherwise
-fn contains(arr: &[&str], word: &str) -> bool {
-    for arr_word in arr {
-        if &word == arr_word {
-            return true;
-        }
+fn is_symbol(s: &str) -> bool {
+    if s.len() != 1 {
+        return false;
     }
-    false
+    let ch = s.chars().next().unwrap();
+    SYMBOLS.iter().any(|symbol| symbol == &ch)
 }
 
-/// Holds the representation of a token
-#[derive(Debug, PartialEq)]
-pub struct Token {
-    literal: String,
-    token_type: TokenType,
-}
-
-impl Token {
-    /// Creates a new Token instance.
-    /// Note that `literal` is converted into `String`
-    pub fn new(literal: &str) -> Self {
-        let token_type = {
-            if contains(KEYWORDS, literal) {
-                TokenType::Keyword
-            } else if contains(SYMBOLS, literal) {
-                TokenType::Symbol
-            } else {
-                let mut is_number = true;
-                for ch in literal.chars() {
-                    if !ch.is_digit(10) {
-                        is_number = false;
-                        break;
-                    }
-                }
-                if is_number {
-                    TokenType::Number
-                } else {
-                    TokenType::Identifier
-                }
-            }
-        };
-        Self {
-            literal: String::from(literal),
-            token_type,
-        }
-    }
+#[derive(Debug, PartialEq, Clone)]
+pub enum Token {
+    Keyword(String),
+    Symbol(char),
+    Identifier(String),
+    Number(i32),
 }
 
 #[derive(Debug, PartialEq)]
@@ -72,167 +29,121 @@ pub struct UnexpectedToken {
 }
 
 impl UnexpectedToken {
-    /// Creates a new UnexpectedToken instance.
-    /// Constructs a Token from `exp_literal` and `exp_type`
-    pub fn new(exp_literal: &str, nline: i32, nchar: i32) -> Self {
+    pub fn new(expected: Token, nline: i32, nchar: i32) -> Self {
         Self {
-            expected: Token::new(exp_literal),
+            expected,
             nline,
             nchar,
         }
     }
 }
 
-/// Tokenises a given string
 pub struct Tokeniser<'a> {
+    tokens: Vec<Token>,
     itr: std::str::Chars<'a>,
     nline: i32,
     nchar: i32,
 }
 
 impl<'a> Tokeniser<'a> {
-    /// Creates a new Tokeniser
-    /// Creates a character iterator over `contents` and sets line and character
-    /// counters to 1.
     pub fn new(contents: &'a str) -> Self {
         Self {
+            tokens: Vec::new(),
             itr: contents.chars(),
             nline: 1,
             nchar: 1,
         }
     }
-    /// Reads the next character and increments counters.
-    /// Returns Some(ch) when there is a character to read. None otherwise.
-    fn next_char(&mut self) -> Option<char> {
+    fn next(&mut self) -> Option<char> {
         if let Some(ch) = self.itr.next() {
-            self.advance_counters(ch);
+            if ch == '\n' {
+                self.nline += 1;
+                self.nchar = 1;
+            } else {
+                self.nchar += 1;
+            }
             Some(ch)
         } else {
             None
         }
     }
-    /// Returns the next character without advancing the iterator or the
-    /// counters
-    fn next_char_peek(&mut self) -> Option<char> {
+    fn peek(&mut self) -> Option<char> {
         let mut iter = self.itr.clone();
         iter.next()
     }
-    /// Takes a character that was just consumed. If newline, increments line
-    /// count and resets char count. Increments char count otherwise.
-    fn advance_counters(&mut self, ch: char) {
-        if ch == '\n' {
-            self.nline += 1;
-            self.nchar = 1;
-        } else {
-            self.nchar += 1;
-        }
+
+    pub fn tokenise_chip(&mut self) -> Result<(), UnexpectedToken> {
+        self.tokenise_keyword("CHIP")?;
+        self.tokenise_identifier()?;
+        self.tokenise_symbol('{')?;
+        self.tokenise_keyword("IN")?;
+        self.tokenise_identifier_list()?;
+        self.tokenise_symbol(';')?;
+        self.tokenise_keyword("OUT")?;
+        self.tokenise_identifier_list()?;
+        self.tokenise_symbol(';')?;
+        self.tokenise_keyword("PARTS")?;
+        self.tokenise_symbol(':')?;
+        self.tokenise_parts_list()?;
+        self.tokenise_symbol('}')?;
+        Ok(())
     }
-    /// Tokenises the entire chip description
-    pub fn tokenise_chip(&mut self) -> Result<Vec<Token>, UnexpectedToken> {
-        self.skip_nontokens();
-        let mut tokens = Vec::new();
-        tokens.push(self.tokenise_expected("CHIP")?);
-        tokens.append(&mut self.tokenise_identifier()?);
-        tokens.push(self.tokenise_expected("{")?);
-        tokens.push(self.tokenise_expected("IN")?);
-        tokens.append(&mut self.tokenise_identifier_list()?);
-        tokens.push(self.tokenise_expected(";")?);
-        tokens.push(self.tokenise_expected("OUT")?);
-        tokens.append(&mut self.tokenise_identifier_list()?);
-        tokens.push(self.tokenise_expected(";")?);
-        tokens.push(self.tokenise_expected("PARTS")?);
-        tokens.push(self.tokenise_expected(":")?);
-        tokens.append(&mut self.tokenise_parts_list()?);
-        tokens.push(self.tokenise_expected("}")?);
-        Ok(tokens)
-    }
-    /// Tokenises consecutive part declarations
-    pub fn tokenise_parts_list(
-        &mut self,
-    ) -> Result<Vec<Token>, UnexpectedToken> {
-        let mut tokens = Vec::new();
-        tokens.append(&mut self.tokenise_part()?);
-        self.skip_nontokens();
-        while let Some(ch) = self.next_char_peek() {
+    pub fn tokenise_parts_list(&mut self) -> Result<(), UnexpectedToken> {
+        while let Some(ch) = self.peek() {
             if ch != '}' {
-                tokens.append(&mut self.tokenise_part()?);
-                self.skip_nontokens();
+                self.tokenise_part()?;
             } else {
                 break;
             }
         }
-        Ok(tokens)
+        Ok(())
     }
-    /// Tokenises a part of the form PartName(pin1=pin2, ...);
-    pub fn tokenise_part(&mut self) -> Result<Vec<Token>, UnexpectedToken> {
-        let mut tokens = Vec::new();
-        tokens.append(&mut self.tokenise_identifier()?);
-        tokens.push(self.tokenise_expected("(")?);
-        tokens.append(&mut self.tokenise_assignment_list()?);
-        tokens.push(self.tokenise_expected(")")?);
-        tokens.push(self.tokenise_expected(";")?);
-        Ok(tokens)
+    pub fn tokenise_part(&mut self) -> Result<(), UnexpectedToken> {
+        self.tokenise_identifier()?;
+        self.tokenise_symbol('(')?;
+        self.tokenise_assignment_list()?;
+        self.tokenise_symbol(')')?;
+        self.tokenise_symbol(';')?;
+        Ok(())
     }
-    /// Returns a vector of tokens of assignments
-    pub fn tokenise_assignment_list(
-        &mut self,
-    ) -> Result<Vec<Token>, UnexpectedToken> {
-        let mut tokens = Vec::new();
-        tokens.append(&mut self.tokenise_assignment()?);
-        self.skip_nontokens();
-        while let Some(ch) = self.next_char_peek() {
+    pub fn tokenise_assignment_list(&mut self) -> Result<(), UnexpectedToken> {
+        while let Some(ch) = self.peek() {
             if ch == ',' {
-                self.next_char();
-                tokens.append(&mut self.tokenise_assignment()?);
-                self.skip_nontokens();
-            } else {
+                self.next();
+            } else if ch == ')' {
                 break;
             }
+            self.tokenise_assignment()?;
         }
-        Ok(tokens)
+        Ok(())
     }
-    /// Tokenises assignment of the form a=b
-    pub fn tokenise_assignment(
-        &mut self,
-    ) -> Result<Vec<Token>, UnexpectedToken> {
-        let mut tokens = Vec::new();
-        tokens.append(&mut self.tokenise_identifier()?);
-        tokens.push(self.tokenise_expected("=")?);
-        tokens.append(&mut self.tokenise_identifier()?);
-        Ok(tokens)
+    pub fn tokenise_assignment(&mut self) -> Result<(), UnexpectedToken> {
+        self.tokenise_identifier()?;
+        self.tokenise_symbol('=')?;
+        self.tokenise_identifier()?;
+        Ok(())
     }
-    /// Returns a vector of tokens of identifiers
-    pub fn tokenise_identifier_list(
-        &mut self,
-    ) -> Result<Vec<Token>, UnexpectedToken> {
-        let mut tokens = Vec::new();
-        tokens.append(&mut self.tokenise_identifier()?);
-        self.skip_nontokens();
-        while let Some(ch) = self.next_char_peek() {
+    pub fn tokenise_identifier_list(&mut self) -> Result<(), UnexpectedToken> {
+        while let Some(ch) = self.peek() {
             if ch == ',' {
-                self.next_char();
-                tokens.append(&mut self.tokenise_identifier()?);
-                self.skip_nontokens();
-            } else {
+                self.next();
+            } else if ch == ';' {
                 break;
             }
+            self.tokenise_identifier()?;
         }
-        Ok(tokens)
+        Ok(())
     }
-    /// If the current character is not a digit, all following
-    /// alphanumeric characters are considered to be an identifier.
-    /// Returns token with
-    /// `literal` of that identifier and `token_type` `Identifier`.
-    /// Error otherwise.
-    pub fn tokenise_identifier(
-        &mut self,
-    ) -> Result<Vec<Token>, UnexpectedToken> {
+    /// If the current character is a letter or `_`, all following
+    /// alphanumeric characters and `_` are considered to be an identifier.
+    pub fn tokenise_identifier(&mut self) -> Result<(), UnexpectedToken> {
         self.skip_nontokens();
-        let mut tokens = Vec::new();
-        let err =
-            Err(UnexpectedToken::new("identifier", self.nchar, self.nline));
-        let mut itr_char = self.itr.clone();
-        let next_ch = itr_char.next();
+        let err = Err(UnexpectedToken::new(
+            Token::Identifier("identifier".to_string()),
+            self.nline,
+            self.nchar,
+        ));
+        let next_ch = self.peek();
         if next_ch == None {
             return err;
         }
@@ -240,32 +151,36 @@ impl<'a> Tokeniser<'a> {
         if !next_ch.is_alphabetic() && next_ch != '_' {
             return err;
         }
-        let mut itr_word =
-            self.itr.as_str().split(|ch: char| !ch.is_alphanumeric());
-        let iden = itr_word.next().unwrap();
-        if contains(KEYWORDS, iden) || contains(SYMBOLS, iden) {
+        let mut itr_word = self
+            .itr
+            .as_str()
+            .split(|ch: char| !ch.is_alphanumeric() && ch != '_');
+        let identifier = itr_word.next().unwrap();
+        if is_keyword(identifier) || is_symbol(identifier) {
             return err;
         }
-        for _ in iden.chars() {
-            self.next_char();
+        for _ in identifier.chars() {
+            self.next();
         }
-        tokens.push(Token::new(iden));
-        if let Some(ch) = self.next_char_peek() {
+        self.tokens.push(Token::Identifier(identifier.to_string()));
+        if let Some(ch) = self.peek() {
             if ch == '[' {
-                tokens.push(self.tokenise_expected("[")?);
-                tokens.push(self.tokenise_number()?);
-                tokens.push(self.tokenise_expected("]")?);
+                self.tokenise_symbol('[')?;
+                self.tokenise_number()?;
+                self.tokenise_symbol(']')?;
             }
         }
-        Ok(tokens)
-    }
-    /// Tokenises a number. Expects the next token-character to be a digit
-    /// in base 10
-    fn tokenise_number(&mut self) -> Result<Token, UnexpectedToken> {
         self.skip_nontokens();
-        let err = Err(UnexpectedToken::new("69", self.nchar, self.nline));
-        let mut itr_char = self.itr.clone();
-        let next_ch = itr_char.next();
+        Ok(())
+    }
+    fn tokenise_number(&mut self) -> Result<(), UnexpectedToken> {
+        self.skip_nontokens();
+        let err = Err(UnexpectedToken::new(
+            Token::Number(69),
+            self.nchar,
+            self.nline,
+        ));
+        let next_ch = self.peek();
         if next_ch == None {
             return err;
         }
@@ -276,45 +191,62 @@ impl<'a> Tokeniser<'a> {
         let mut itr_word = self.itr.as_str().split(|ch: char| !ch.is_digit(10));
         let num = itr_word.next().unwrap();
         for _ in num.chars() {
-            self.next_char();
+            self.next();
         }
-        Ok(Token::new(num))
-    }
-    /// If the current character starts `expct`,
-    /// returns Token with literal `expct` and type `tpe`,
-    /// and advances the iterator just past `expct`
-    /// Error if the current character does not start `expct`
-    pub fn tokenise_expected(
-        &mut self,
-        expct: &str,
-    ) -> Result<Token, UnexpectedToken> {
+        self.tokens.push(Token::Number(num.parse().unwrap()));
         self.skip_nontokens();
-        let expected_token = Token::new(expct);
-        if self.itr.as_str().starts_with(expct) {
-            for _ in expct.chars() {
-                self.next_char();
-            }
-            return Ok(expected_token);
-        }
-        Err(UnexpectedToken::new(expct, self.nline, self.nchar))
+        Ok(())
     }
-    /// If the current character is a whitespace or starts a comment,
-    /// moves the iterator to the character that starts a token.
+    pub fn tokenise_keyword(
+        &mut self,
+        keyword: &str,
+    ) -> Result<(), UnexpectedToken> {
+        self.skip_nontokens();
+        if self.itr.as_str().starts_with(keyword) {
+            for _ in keyword.chars() {
+                self.next();
+            }
+            self.tokens.push(Token::Keyword(keyword.to_string()));
+            self.skip_nontokens();
+            return Ok(());
+        }
+        Err(UnexpectedToken::new(
+            Token::Keyword(keyword.to_string()),
+            self.nline,
+            self.nchar,
+        ))
+    }
+    pub fn tokenise_symbol(
+        &mut self,
+        symbol: char,
+    ) -> Result<(), UnexpectedToken> {
+        self.skip_nontokens();
+        if let Some(ch) = self.next() {
+            if ch == symbol {
+                self.tokens.push(Token::Symbol(ch));
+                self.skip_nontokens();
+                return Ok(());
+            }
+        }
+        Err(UnexpectedToken::new(
+            Token::Symbol(symbol),
+            self.nline,
+            self.nchar,
+        ))
+    }
     fn skip_nontokens(&mut self) {
         while self.skip_whitespace()
             || self.skip_comment("/*", "*/")
             || self.skip_comment("//", "\n")
         {}
     }
-    /// If the current character is a whitespace, moves the iterator to the next
-    /// non-whitespace character.
     /// Returns `true` if moved the iterator, `false` otherwise.
     fn skip_whitespace(&mut self) -> bool {
         let itr = self.itr.clone();
         let mut moved = false;
         for ch in itr {
             if ch.is_whitespace() {
-                self.next_char();
+                self.next();
                 moved = true;
                 continue;
             }
@@ -322,29 +254,29 @@ impl<'a> Tokeniser<'a> {
         }
         moved
     }
-    /// If the current character starts a comment, advances the iterator to
-    /// the next non-comment character (handles back-to-back comments as well).
     /// Returns `true` if moved the iterator, `false` otherwise.
     fn skip_comment(&mut self, start: &str, end: &str) -> bool {
         let mut moved = false;
         while self.itr.as_str().starts_with(start) {
             moved = true;
             for _ in start.chars() {
-                self.next_char();
+                self.next();
             }
             loop {
                 if self.itr.as_str().starts_with(end) {
                     for _ in end.chars() {
-                        self.next_char();
+                        self.next();
                     }
                     break;
                 }
-                self.next_char();
+                self.next();
             }
         }
         moved
     }
 }
+
+// ============================================================================
 
 #[cfg(test)]
 mod tests {
@@ -373,12 +305,12 @@ mod tests {
     }
     #[test]
     fn skip_comment() {
-        let contents = "/*com*/Thisis/* comment */astring/* comment 2*//**/
+        let contents = "/*com*/This is/* comment */a string/* comment 2*//**/
 // this is a line comment here
 // another line comment
 //
 extra";
-        let contents_nc = "Thisisastring\nextra";
+        let contents_nc = "This isa string\nextra";
         let mut tokeniser = Tokeniser::new(contents);
         let mut no_com = Vec::new();
         loop {
@@ -418,18 +350,19 @@ c=d
         assert_eq!(tok_only, contents_to_vec);
     }
     #[test]
-    fn tokenise_expected() {
+    fn tokenise_keyword() {
         let contents = "  CHIP {";
         let mut tokeniser = Tokeniser::new(contents);
-        let chip_expct = tokeniser.tokenise_expected("CHIP").unwrap();
-        let chip_expct_exp = Token::new("CHIP");
-        assert_eq!(chip_expct, chip_expct_exp);
-        assert_eq!(Some(' '), tokeniser.itr.next());
+        tokeniser.tokenise_keyword("CHIP").unwrap();
+        let chip_got = tokeniser.tokens;
+        let chip_expected = vec![Token::Keyword("CHIP".to_string())];
+        assert_eq!(chip_got, chip_expected);
         assert_eq!(Some('{'), tokeniser.itr.next());
         let contents = "NOTCHIP {";
         let mut tokeniser = Tokeniser::new(contents);
-        let chip_err = tokeniser.tokenise_expected("CHIP").unwrap_err();
-        let chip_err_exp = UnexpectedToken::new("CHIP", 1, 1);
+        let chip_err = tokeniser.tokenise_keyword("CHIP").unwrap_err();
+        let chip_err_exp =
+            UnexpectedToken::new(Token::Keyword("CHIP".to_string()), 1, 1);
         assert_eq!(chip_err, chip_err_exp);
     }
     #[test]
@@ -439,145 +372,136 @@ c=d
 /*comment*/a=b";
         let mut tokeniser = Tokeniser::new(contents);
         assert_eq!((1, 1), (tokeniser.nline, tokeniser.nchar));
-        tokeniser.tokenise_expected("CHIP").unwrap();
-        assert_eq!((1, 9), (tokeniser.nline, tokeniser.nchar));
+        tokeniser.tokenise_keyword("CHIP").unwrap();
+        assert_eq!((1, 10), (tokeniser.nline, tokeniser.nchar));
         tokeniser.tokenise_identifier().unwrap();
-        assert_eq!((1, 13), (tokeniser.nline, tokeniser.nchar));
-        tokeniser.skip_nontokens();
         assert_eq!((3, 12), (tokeniser.nline, tokeniser.nchar));
     }
     #[test]
     fn tokenise_number() {
         let mut tokeniser = Tokeniser::new("/**/  123");
-        let token_exp = Token::new("123");
-        assert_eq!(token_exp, tokeniser.tokenise_number().unwrap());
+        let token_exp = Token::Number(123);
+        tokeniser.tokenise_number().unwrap();
+        assert_eq!(token_exp, tokeniser.tokens[0]);
     }
     #[test]
     fn tokenise_identifier() {
+        let token_exp = Token::Identifier("And".to_string());
+        let err_exp = UnexpectedToken::new(
+            Token::Identifier("identifier".to_string()),
+            1,
+            1,
+        );
+
         let mut tokeniser = Tokeniser::new("/**/  And");
-        let token_exp = Token::new("And");
-        let err_exp = UnexpectedToken::new("identifier", 1, 1);
-        assert_eq!(token_exp, tokeniser.tokenise_identifier().unwrap()[0]);
+        tokeniser.tokenise_identifier().unwrap();
+        assert_eq!(token_exp, tokeniser.tokens[0]);
+
         let mut tokeniser = Tokeniser::new("1And");
         assert_eq!(err_exp, tokeniser.tokenise_identifier().unwrap_err());
+
         let mut tokeniser = Tokeniser::new("");
         assert_eq!(err_exp, tokeniser.tokenise_identifier().unwrap_err());
+
         let mut tokeniser = Tokeniser::new("{");
         assert_eq!(err_exp, tokeniser.tokenise_identifier().unwrap_err());
+
         let mut tokeniser = Tokeniser::new("CHIP");
         assert_eq!(err_exp, tokeniser.tokenise_identifier().unwrap_err());
+
         let mut tokeniser = Tokeniser::new("a[16]");
         let tokens_exp = vec![
-            Token::new("a"),
-            Token::new("["),
-            Token::new("16"),
-            Token::new("]"),
+            Token::Identifier("a".to_string()),
+            Token::Symbol('['),
+            Token::Number(16),
+            Token::Symbol(']'),
         ];
-        assert_eq!(tokens_exp, tokeniser.tokenise_identifier().unwrap());
+        tokeniser.tokenise_identifier().unwrap();
+        assert_eq!(tokens_exp, tokeniser.tokens);
     }
     #[test]
     fn tokenise_identifier_list() {
         let mut tokeniser = Tokeniser::new("  a, b  ,c,d/**/,e  /*cc*/;  ");
         let exp_vec = vec![
-            Token::new("a"),
-            Token::new("b"),
-            Token::new("c"),
-            Token::new("d"),
-            Token::new("e"),
+            Token::Identifier("a".to_string()),
+            Token::Identifier("b".to_string()),
+            Token::Identifier("c".to_string()),
+            Token::Identifier("d".to_string()),
+            Token::Identifier("e".to_string()),
         ];
-        assert_eq!(exp_vec, tokeniser.tokenise_identifier_list().unwrap());
-        assert_eq!(';', tokeniser.next_char().unwrap());
-    }
-    #[test]
-    fn token_new() {
-        let token = Token::new("CHIP");
-        let token_exp = Token {
-            literal: String::from("CHIP"),
-            token_type: TokenType::Keyword,
-        };
-        assert_eq!(token, token_exp);
-        let token = Token::new("{");
-        let token_exp = Token {
-            literal: String::from("{"),
-            token_type: TokenType::Symbol,
-        };
-        assert_eq!(token, token_exp);
-        let token = Token::new("a");
-        let token_exp = Token {
-            literal: String::from("a"),
-            token_type: TokenType::Identifier,
-        };
-        assert_eq!(token, token_exp);
-        let token = Token::new("123");
-        let token_exp = Token {
-            literal: String::from("123"),
-            token_type: TokenType::Number,
-        };
-        assert_eq!(token, token_exp);
+        tokeniser.tokenise_identifier_list().unwrap();
+        assert_eq!(exp_vec, tokeniser.tokens);
+        assert_eq!(';', tokeniser.next().unwrap());
     }
     #[test]
     fn tokenise_assignment() {
-        let tokens =
-            Tokeniser::new("  a  =  b  ").tokenise_assignment().unwrap();
-        let tokens_exp =
-            vec![Token::new("a"), Token::new("="), Token::new("b")];
+        let mut tokeniser = Tokeniser::new("  a  =  b  ");
+        tokeniser.tokenise_assignment().unwrap();
+        let tokens = tokeniser.tokens;
+
+        let tokens_exp = vec![
+            Token::Identifier("a".to_string()),
+            Token::Symbol('='),
+            Token::Identifier("b".to_string()),
+        ];
         assert_eq!(tokens, tokens_exp);
     }
     #[test]
     fn tokenise_assignment_list() {
-        let tokens = Tokeniser::new(" a = b , c = d , e = f ")
-            .tokenise_assignment_list()
-            .unwrap();
+        let mut tokeniser = Tokeniser::new(" a = b , c = d , e = f ");
+        tokeniser.tokenise_assignment_list().unwrap();
+        let tokens = tokeniser.tokens;
+
         let tokens_exp = vec![
-            Token::new("a"),
-            Token::new("="),
-            Token::new("b"),
-            Token::new("c"),
-            Token::new("="),
-            Token::new("d"),
-            Token::new("e"),
-            Token::new("="),
-            Token::new("f"),
+            Token::Identifier("a".to_string()),
+            Token::Symbol('='),
+            Token::Identifier("b".to_string()),
+            Token::Identifier("c".to_string()),
+            Token::Symbol('='),
+            Token::Identifier("d".to_string()),
+            Token::Identifier("e".to_string()),
+            Token::Symbol('='),
+            Token::Identifier("f".to_string()),
         ];
         assert_eq!(tokens, tokens_exp);
     }
     #[test]
     fn tokenise_part() {
-        let tokens = Tokeniser::new(" Nand( a = a, b = b, out = c ); ")
-            .tokenise_part()
-            .unwrap();
+        let mut tokeniser = Tokeniser::new(" Nand( a = a, b = b, out = c ); ");
+        tokeniser.tokenise_part().unwrap();
         let tokens_exp = vec![
-            Token::new("Nand"),
-            Token::new("("),
-            Token::new("a"),
-            Token::new("="),
-            Token::new("a"),
-            Token::new("b"),
-            Token::new("="),
-            Token::new("b"),
-            Token::new("out"),
-            Token::new("="),
-            Token::new("c"),
-            Token::new(")"),
-            Token::new(";"),
+            Token::Identifier("Nand".to_string()),
+            Token::Symbol('('),
+            Token::Identifier("a".to_string()),
+            Token::Symbol('='),
+            Token::Identifier("a".to_string()),
+            Token::Identifier("b".to_string()),
+            Token::Symbol('='),
+            Token::Identifier("b".to_string()),
+            Token::Identifier("out".to_string()),
+            Token::Symbol('='),
+            Token::Identifier("c".to_string()),
+            Token::Symbol(')'),
+            Token::Symbol(';'),
         ];
-        assert_eq!(tokens, tokens_exp);
+        assert_eq!(tokeniser.tokens, tokens_exp);
     }
     #[test]
     fn tokenise_parts_list() {
-        let tokens = Tokeniser::new(
+        let mut tokeniser = Tokeniser::new(
             " Nand( a = a, b = b, out = c ); Nand(a=c, b=c, out=out);",
-        )
-        .tokenise_parts_list()
-        .unwrap();
-        let mut tokens_exp = Tokeniser::new(" Nand( a = a, b = b, out = c );")
-            .tokenise_part()
-            .unwrap();
-        tokens_exp.append(
-            &mut Tokeniser::new(" Nand(a=c, b=c, out=out);")
-                .tokenise_part()
-                .unwrap(),
         );
-        assert_eq!(tokens, tokens_exp);
+        tokeniser.tokenise_parts_list().unwrap();
+        let tokens_obtained = tokeniser.tokens;
+
+        let mut tokeniser = Tokeniser::new(" Nand( a = a, b = b, out = c );");
+        tokeniser.tokenise_part().unwrap();
+        let mut tokens_expected = tokeniser.tokens;
+
+        let mut tokeniser = Tokeniser::new(" Nand(a=c, b=c, out=out);");
+        tokeniser.tokenise_part().unwrap();
+        tokens_expected.append(&mut tokeniser.tokens);
+
+        assert_eq!(tokens_obtained, tokens_expected);
     }
 }
